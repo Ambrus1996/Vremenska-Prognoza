@@ -1,0 +1,194 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f2f2f2;
+    margin: 0;
+    padding: 30;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+
+.container {
+    background-color: fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px rgba(0.3, 0, 0, 0.1);
+    width: 90%;
+    max-width: 900px;
+    text-align: center;
+}
+
+.search-form {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    margin-right: 180px;
+}
+
+.search-form input[type="text"] {
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    outline: none;
+    transition: border 0.3s ease;
+}
+
+.search-form input[type="text"]:focus {
+    border-color: #007BFF; /* Možete promeniti ovu boju ako želite */
+}
+
+.search-form input[type="submit"] {
+    padding: 10px 15px;
+    border: none;
+    background-color: #007BFF; /* Primarna boja */
+    color: #fff; /* Tekst boja */
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.search-form input[type="submit"]:hover {
+    background-color: #0056b3; /* Tamnija nijansa plave boje za hover efekat */
+}
+
+.weather-info {
+    border-top: 1px solid #e0e0e0;
+    padding-top: 20px;
+    border-radius: 5px;
+}
+
+.current-weather {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.temperature {
+    font-size: 48px;
+    font-weight: bold;
+}
+
+.details {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.forecast {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.forecast-day {
+    width: 100px; /* ili neka druga vrednost koja vam odgovara */
+    text-align: center;
+    border: 1px solid #ddd; /* da biste dodali granicu oko svake prognoze za dan */
+    padding: 10px;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 10px; /* zaobljene ivice */
+}
+body.dark-mode {
+    background-color: #222;
+    color: #ddd;
+}
+
+body.dark-mode .container {
+    background-color: #333;
+}
+
+/* Možete dodati dodatne stilove ovde za druge elemente ako je potrebno */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+.modal-content {
+    background-color: #f4f4f4;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 70%;
+    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+    border-radius: 12px;
+    font-family: 'Arial', sans-serif;
+    font-size: 18px;
+    line-height: 1.6;
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+.container.modal-blur {
+    filter: blur(5px) brightness(0.7);
+}
+/* body.sunny-day {
+    background-image: url('/assets/images/sunce1.png');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+body.clear-night {
+    background-image: url('../assets/images/clear-night.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+} */
+#toggleDarkMode{
+    /* background-color: black;
+    color: white;
+    border: 2px solid #888;
+    border-radius: 12px;
+    font-family: 'Arial', sans-serif;
+    margin: 10px; */
+    float: right;
+    background-color: black; /* Zelena pozadina */
+    color: white; /* Bela boja teksta */
+    padding: 10px 20px; /* Gornji/donji i levi/desni padding */
+    margin: 8px 0; /* Gornji/donji margina */
+    border: 3px; /* Bez ivice */
+    cursor: pointer; /* Kursor će se promeniti u ruku kada pređete preko dugmeta */
+    width: 20%; /* Širina 100% */
+    border-radius: 12px; /* Zaobljeni uglovi */
+    font-family: 'Arial', sans-serif;
+    font-size: 15px;
+    
+}
+#toggleDarkMode:hover {
+    opacity: 0.8; /* Dodajte efekat providnosti kada pređete preko dugmeta */
+}
+#weatherDescriptionBtn{
+    padding: 10px 15px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: lightblue; /* Ova boja je primer, možete je promeniti prema vašem ukusu */
+    color:whitesmoke; /* Bela boja teksta */
+    transition: background-color 0.3s ease;
+}
+#weatherDescriptionBtn:hover{    
+background-color: darkblue; /* Tamnija nijansa zelene boje prilikom prelaska miša preko dugmeta */
+}

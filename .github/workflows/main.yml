@@ -1,0 +1,113 @@
+# Dajemo ime celom pipeline-u. Videćeš ovo ime na 'Actions' tabu u GitHub-u.
+name: CI/CD za Vremensku Prognozu
+
+# ===================================================================
+# 1. OKIDAČ (TRIGGER) - Kada ovo da se pokrene?
+# ===================================================================
+on:
+  # Pokreni pipeline kada neko uradi 'push' (gurne kod)...
+  push:
+    branches:
+      - main  # ...ali SAMO ako je to 'push' na 'main' granu.
+
+  # Ovo je bonus: Dozvoljava ti da ručno pokreneš pipeline
+  # klikom na dugme u GitHub interfejsu. Odlično za testiranje.
+  workflow_dispatch:
+
+# ===================================================================
+# 2. POSLOVI (JOBS) - Šta treba da se uradi?
+# ===================================================================
+jobs:
+  # -----------------------------------------------------------------
+  # POSAO #1: CI Faza (Build & Push)
+  # Ovaj posao će napraviti Docker sliku i gurnuti je na Docker Hub.
+  # -----------------------------------------------------------------
+  build_and_push:
+    # Ime posla, da bude čitljivo
+    name: Build & Push Docker Image
+
+    # 'runs-on' kaže GitHub-u koju mašinu da "iznajmi" za ovaj posao.
+    # Uvek koristimo 'ubuntu-latest' jer je standard za Docker.
+    runs-on: ubuntu-latest
+
+    # 'steps' su koraci koje "radnik" (Ubuntu mašina) izvršava redom.
+    steps:
+      # KORAK 1: Preuzmi kod
+      # Pre nego što bilo šta uradimo, "radnik" mora da preuzme tvoj kod
+      # sa GitHub repozitorijuma na svoju privremenu mašinu.
+      - name: 1. Preuzmi kod (Checkout)
+        uses: actions/checkout@v3
+
+      # KORAK 2: Prijavi se na Docker Hub
+      # Ne možemo da guramo (push) sliku ako nismo ulogovani.
+      # Ovde koristimo 'secrets' - ovo je KLJUČNO za DevOps.
+      # Nikada ne kucaj lozinke direktno u kod!
+      - name: 2. Prijavi se na Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # KORAK 3: Izgradi (Build) i Gurni (Push) Docker sliku
+      # Ovo je srce CI faze. Ova akcija radi ono što si ti radio lokalno.
+      - name: 3. Izgradi (Build) i Gurni (Push) Docker sliku
+        uses: docker/build-push-action@v4
+        with:
+          # 'context: .' kaže: "Dockerfile je u istom folderu gde si preuzeo kod"
+          context: .
+          # Eksplicitno mu kažemo koji fajl da koristi (onaj optimizovani)
+          file: ./Dockerfile
+          # 'push: true' kaže: "Da, nakon build-a, gurni sliku."
+          push: true
+          # 'tags' je ime slike. Format: tvojusername/ime-slike:tag
+          # Ti ćeš ovde staviti SVOJE Docker Hub korisničko ime.
+          tags: tvojdockerhubusername/weather-app:latest
+          # (npr: perapericdev/weather-app:latest)
+
+  # -----------------------------------------------------------------
+  # POSAO #2: CD Faza (Deploy)
+  # Ovaj posao će se povezati na tvoj server i reći mu da preuzme novu sliku.
+  # -----------------------------------------------------------------
+  deploy:
+    # Ime posla
+    name: Deploy na Server
+
+    # Opet nam treba "radnik"
+    runs-on: ubuntu-latest
+
+    # OVO JE NAJVAŽNIJI DEO!
+    # 'needs' kaže: "Ne počinji ovaj posao dok se posao 'build_and_push'
+    # ne završi USPEŠNO." Ovo je tvoja sigurnosna mreža.
+    # Ako build pukne, deploy se neće ni pokrenuti.
+    needs: build_and_push
+
+    steps:
+      # KORAK 1: Poveži se na server (SSH) i pokreni Deploy skriptu
+      # Ovo je magija. "Radnik" sa GitHub-a će se ulogovati na tvoj server
+      # (DigitalOcean, AWS, Hetzner...) koristeći SSH.
+      # Opet koristimo 'secrets' da bismo sačuvali IP adresu, username i SSH ključ.
+      - name: 1. Poveži se na server (SSH) i pokreni Deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}         # IP adresa tvog servera
+          username: ${{ secrets.SERVER_USERNAME }} # npr. 'root' ili 'ubuntu'
+          key: ${{ secrets.SERVER_SSH_KEY }}      # Privatni SSH ključ
+
+          # 'script' je lista komandi koje će se izvršiti NA TVOM SERVERU,
+          # kao da si se ti ulogovao preko PuTTY-ja ili terminala.
+          script: |
+            # Prvo, idemo u folder gde živi tvoja aplikacija na serveru
+            cd /opt/vremenska-prognoza 
+            
+            # Kažemo serveru: "Povuci (pull) najnoviju sliku sa Docker Hub-a
+            # za servis koji se zove 'weather_app' (iz tvog docker-compose.yml)"
+            docker-compose pull weather_app
+            
+            # Kažemo Docker Compose-u: "Restartuj (up -d) SAMO 'weather_app' servis
+            # koristeći tu novu sliku."
+            # '--no-deps' je bitno: "Ne diraj mi bazu ('weather_db') ili phpmyadmin."
+            docker-compose up -d --no-deps weather_app
+            
+            # Bonus: Čišćenje. Briše sve stare, nekorišćene Docker slike
+            # da ti ne bi pojele prostor na disku.
+            docker image prune -f
