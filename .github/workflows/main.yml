@@ -68,34 +68,34 @@ jobs:
   # POSAO #2: CD Faza (Deploy)
   # Ovaj posao će se povezati na tvoj server i reći mu da preuzme novu sliku.
   # -----------------------------------------------------------------
-  deploy:
-    # Ime posla
-    name: Deploy na Server
+  # deploy:
+  #   # Ime posla
+  #   name: Deploy na Server
 
-    # Opet nam treba "radnik"
-    runs-on: ubuntu-latest
+  #   # Opet nam treba "radnik"
+  #   runs-on: ubuntu-latest
 
-    # OVO JE NAJVAŽNIJI DEO!
-    # 'needs' kaže: "Ne počinji ovaj posao dok se posao 'build_and_push'
-    # ne završi USPEŠNO." Ovo je tvoja sigurnosna mreža.
-    # Ako build pukne, deploy se neće ni pokrenuti.
-    needs: build_and_push
+  #   # OVO JE NAJVAŽNIJI DEO!
+  #   # 'needs' kaže: "Ne počinji ovaj posao dok se posao 'build_and_push'
+  #   # ne završi USPEŠNO." Ovo je tvoja sigurnosna mreža.
+  #   # Ako build pukne, deploy se neće ni pokrenuti.
+  #   needs: build_and_push
 
-    steps:
-      # KORAK 1: Poveži se na server (SSH) i pokreni Deploy skriptu
-      # Ovo je magija. "Radnik" sa GitHub-a će se ulogovati na tvoj server
-      # (DigitalOcean, AWS, Hetzner...) koristeći SSH.
-      # Opet koristimo 'secrets' da bismo sačuvali IP adresu, username i SSH ključ.
-      - name: 1. Poveži se na server (SSH) i pokreni Deploy
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}         # IP adresa tvog servera
-          username: ${{ secrets.SERVER_USERNAME }} # npr. 'root' ili 'ubuntu'
-          key: ${{ secrets.SERVER_SSH_KEY }}      # Privatni SSH ključ
+  #   steps:
+  #     # KORAK 1: Poveži se na server (SSH) i pokreni Deploy skriptu
+  #     # Ovo je magija. "Radnik" sa GitHub-a će se ulogovati na tvoj server
+  #     # (DigitalOcean, AWS, Hetzner...) koristeći SSH.
+  #     # Opet koristimo 'secrets' da bismo sačuvali IP adresu, username i SSH ključ.
+  #     - name: 1. Poveži se na server (SSH) i pokreni Deploy
+  #       uses: appleboy/ssh-action@master
+  #       with:
+  #         host: ${{ secrets.SERVER_HOST }}         # IP adresa tvog servera
+  #         username: ${{ secrets.SERVER_USERNAME }} # npr. 'root' ili 'ubuntu'
+  #         key: ${{ secrets.SERVER_SSH_KEY }}      # Privatni SSH ključ
 
-          # 'script' je lista komandi koje će se izvršiti NA TVOM SERVERU,
-          # kao da si se ti ulogovao preko PuTTY-ja ili terminala.
-          script: |
+  #         # 'script' je lista komandi koje će se izvršiti NA TVOM SERVERU,
+  #         # kao da si se ti ulogovao preko PuTTY-ja ili terminala.
+  #         script: |
             # Prvo, idemo u folder gde živi tvoja aplikacija na serveru
             cd /opt/vremenska-prognoza 
             
