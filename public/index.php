@@ -22,7 +22,7 @@ require_once __DIR__ . '/../app/controllers/WeatherController.php'; // Ucitavanj
 $weatherAPI = new \App\Models\WeatherAPI($_ENV['OPENWEATHERMAP_API_KEY']);
 $weatherController = new \App\Controllers\WeatherController($weatherAPI); // Kreiranje WeatherController objekta
 
-$cityName = $_GET['city'] ?? null;
+$cityName = $_GET['city'] ?? null
 
 $weatherController->showWeather($cityName);
 ?>
