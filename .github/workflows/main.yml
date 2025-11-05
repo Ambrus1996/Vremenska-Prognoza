@@ -20,11 +20,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 3. Izgradi i Gurni Docker sliku
+      - name: 3. Izdvoj Skraćeni SHA ID
+        id: vars
+        run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
+
+      - name: 4. Izgradi i Gurni Docker sliku
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           push: true
-          
-          tags: ambrus1996/weather-app:latest
+         
+          tags: |
+            ambrus1996/weather-app:latest
+            ambrus1996/weather-app:${{ steps.vars.outputs.sha }}
