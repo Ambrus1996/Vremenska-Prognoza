@@ -61,7 +61,7 @@ jobs:
           push: true
           # 'tags' je ime slike. Format: tvojusername/ime-slike:tag
           # Ti ćeš ovde staviti SVOJE Docker Hub korisničko ime.
-          tags: tvojdockerhubusername/weather-app:latest
+          tags: ambrus1996/weather-app:latest
           # (npr: perapericdev/weather-app:latest)
 
   # -----------------------------------------------------------------
