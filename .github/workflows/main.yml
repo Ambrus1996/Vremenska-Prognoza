@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------
 # Pipeline Name
 # -----------------------------------------------------------------
-name: CI - Build, Push, and Scan
+name: CI - Lint, Build, Push, and Scan
 
 # -----------------------------------------------------------------
 # Triggers: When to run this pipeline
@@ -24,9 +24,29 @@ on:
 # Jobs: What to do
 # -----------------------------------------------------------------
 jobs:
-  # --- JOB #1: Build and Push ---
+  # --- JOB #1: Check Code Quality (NEW!) ---
+  php_lint:
+    name: Check PHP Syntax (Lint)
+    runs-on: ubuntu-latest
+    steps:
+      # This step checks out your code so the job can access it
+      - name: 1. Checkout Code
+        uses: actions/checkout@v3
+
+      # This step finds and lints all PHP files
+      - name: 2. Run PHP Lint
+        run: |
+          # Find all .php files, ignore the 'vendor' folder, and run 'php -l' on each
+          # If 'php -l' fails on any file, xargs will fail, and the step will fail.
+          find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
+
+  # --- JOB #2: Build and Push (NOW DEPENDS ON LINT) ---
   build_and_push:
     name: Build & Push Docker Image
+    
+    # This job MUST wait for 'php_lint' to finish successfully
+    needs: php_lint
+    
     runs-on: ubuntu-latest
     
     # We need to 'export' the SHA tag so other jobs can use it
@@ -62,7 +82,7 @@ jobs:
             ambrus1996/weather-app:latest
             ambrus1996/weather-app:${{ steps.vars.outputs.sha }}
 
-  # --- JOB #2: Security Scan (NEW!) ---
+  # --- JOB #3: Security Scan (NOW DEPENDS ON BUILD) ---
   security_scan:
     name: Scan Image (Trivy)
     runs-on: ubuntu-latest
