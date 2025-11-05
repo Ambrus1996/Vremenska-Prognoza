@@ -1,36 +1,89 @@
-name: CI - Build and Push Docker Image
+# -----------------------------------------------------------------
+# Pipeline Name
+# -----------------------------------------------------------------
+name: CI - Build, Push, and Scan
 
+# -----------------------------------------------------------------
+# Triggers: When to run this pipeline
+# -----------------------------------------------------------------
 on:
+  # 1. Run on push (this will now primarily run *after* a PR is merged)
   push:
     branches:
       - main
+
+  # 2. (NEW!) Run when a Pull Request is opened or updated targeting the 'main' branch
+  pull_request:
+    branches:
+      - main
+
+  # 3. Keep the manual trigger
   workflow_dispatch:
 
+# -----------------------------------------------------------------
+# Jobs: What to do
+# -----------------------------------------------------------------
 jobs:
+  # --- JOB #1: Build and Push ---
   build_and_push:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
+    
+    # We need to 'export' the SHA tag so other jobs can use it
+    outputs:
+      sha: ${{ steps.vars.outputs.sha }}
+
     steps:
-      - name: 1. Checkout Koda
+      # Step 1: Get the code from the repository
+      - name: 1. Checkout Code
         uses: actions/checkout@v3
 
-      - name: 2. Prijavi se na Docker Hub
+      # Step 2: Log in to Docker Hub using secrets
+      - name: 2. Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 3. Izdvoj Skraćeni SHA ID
+      # Step 3: Get the short Git SHA (e.g., '1a2b3c4') to use as a version tag
+      - name: 3. Extract Short SHA
         id: vars
         run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
 
-      - name: 4. Izgradi i Gurni Docker sliku
+      # Step 4: Build the Docker image and push it to Docker Hub
+      - name: 4. Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           push: true
-         
+          # Tag the image twice: once as 'latest' and once with the unique Git SHA
           tags: |
             ambrus1996/weather-app:latest
             ambrus1996/weather-app:${{ steps.vars.outputs.sha }}
+
+  # --- JOB #2: Security Scan (NEW!) ---
+  security_scan:
+    name: Scan Image (Trivy)
+    runs-on: ubuntu-latest
+    
+    # This job MUST wait for 'build_and_push' to finish successfully
+    needs: build_and_push
+
+    steps:
+      # Step 1: Run the Trivy scanner
+      - name: 1. Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          # Tell Trivy which image to scan (using the SHA from the previous job)
+          image-ref: 'ambrus1996/weather-app:${{ needs.build_and_push.outputs.sha }}'
+          
+          # Format the output as a clean table in the logs
+          format: 'table'
+          
+          # Only show vulnerabilities that have a fix (ignore unfixed ones)
+          ignore-unfixed: true
+          
+          # FAIL the pipeline (return exit code 1) ONLY if HIGH or CRITICAL vulnerabilities are found
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
