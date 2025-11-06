@@ -13,14 +13,14 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 
 // Ucitavanje .env 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); // Navigacija do root direktorijuma
+$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); 
 $dotenv->load();
 
 require_once __DIR__ . '/../app/models/WeatherAPI.php'; 
-require_once __DIR__ . '/../app/controllers/WeatherController.php'; // Ucitavanje WeatherController klase
+require_once __DIR__ . '/../app/controllers/WeatherController.php'; 
 
 $weatherAPI = new \App\Models\WeatherAPI($_ENV['OPENWEATHERMAP_API_KEY']);
-$weatherController = new \App\Controllers\WeatherController($weatherAPI); // Kreiranje WeatherController objekta
+$weatherController = new \App\Controllers\WeatherController($weatherAPI);
 
 $cityName = $_GET['city'] ?? null;
 
