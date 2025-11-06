@@ -1,6 +1,3 @@
-<?php
-// $cities, $cityName, $weather, $forecast postoje iz kontrolera
-?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -8,37 +5,38 @@
     <link rel="stylesheet" href="/assets/css/styles.css">
     <script src="/assets/js/darkmode.js"></script>
 </head>
-<body class="<?php echo $weatherConditionClass ?? ''; ?>">
+<body>
     <div class="container">
         <button id="toggleDarkMode">Noćni režim</button>
         <h1>Vremenska Prognoza</h1>
 
-      <form action="index.php" method="get" class="search-form">
-    <input type="text" id="city" name="city" placeholder="Unesite grad..." value="<?= htmlspecialchars($cityName ?? '') ?>">
-    <input type="submit" value="Pretraga">
-</form>
+        <form action="index.php" method="get" class="search-form">
+            <input type="text" id="city" name="city" placeholder="Unesite grad..." value="<?= htmlspecialchars($cityName ?? '') ?>">
+            <input type="submit" value="Pretraga">
+        </form>
 
+        <?php if (isset($error)): ?>
+            <div class="error-message" style="color: red; margin: 20px 0; padding: 15px; border: 1px solid red; border-radius: 5px; background-color: #fee;">
+                <strong>Greška:</strong> <?= htmlspecialchars($error); ?>
+            </div>
+        <?php endif; ?>
 
-        <div class="weather-info">
-            <?php if (isset($cityName) && isset($weather)): ?>
-                <h2><?= htmlspecialchars($cityName); ?></h2>
+        <?php if (!isset($error) && isset($weather) && is_array($weather)): ?>
+            <div class="weather-info">
+                <h2><?= htmlspecialchars($weather['city_name'] ?? $cityName); ?></h2>
                 <hr>
                 <div class="current-weather">
                     <?php
-                        $weatherIcon = $weather['icon'];
-                        if (in_array($weatherIcon, ["01d","01n"])) {
-                            $iconPath = "/assets/images/sun.png";
-                        } elseif (in_array($weatherIcon, ["02d","02n","03d","03n"])) {
-                            $iconPath = "/assets/images/cloudy.png";
-                        } elseif (in_array($weatherIcon, ["04d","04n"])) {
-                            $iconPath = "/assets/images/overcast.png";
-                        } elseif (in_array($weatherIcon, ["09d","09n","10d","10n"])) {
-                            $iconPath = "/assets/images/rain.png";
-                        } elseif (in_array($weatherIcon, ["11d","11n"])) {
-                            $iconPath = "/assets/images/storm.png";
-                        } else {
-                            $iconPath = "https://openweathermap.org/img/wn/" . htmlspecialchars($weatherIcon) . "@2x.png";
-                        }
+                        // Helper funkcija za ikone (da ne ponavljamo logiku)
+                        $getIconPath = function($iconCode) {
+                             if (in_array($iconCode, ["01d","01n"])) return "/assets/images/sun.png";
+                             if (in_array($iconCode, ["02d","02n","03d","03n"])) return "/assets/images/cloudy.png";
+                             if (in_array($iconCode, ["04d","04n"])) return "/assets/images/overcast.png";
+                             if (in_array($iconCode, ["09d","09n","10d","10n"])) return "/assets/images/rain.png";
+                             if (in_array($iconCode, ["11d","11n"])) return "/assets/images/storm.png";
+                             return "https://openweathermap.org/img/wn/" . htmlspecialchars($iconCode) . "@2x.png";
+                        };
+                        $iconPath = $getIconPath($weather['icon']);
                     ?>
                     <img src="<?= $iconPath ?>" alt="Weather Icon" style="width: 150px;">
                     <p class="temperature"><?= round($weather['temperature']); ?>°C</p>
@@ -50,53 +48,42 @@
                         Vidljivost: <?= $weather['visibility']; ?> km<br>
                     </p>
                 </div>
-            <?php endif; ?>
 
-            <?php
-                $weatherDescription = $weatherDescriptions[$weather['icon']] ?? 'Opis nije dostupan.';
-            ?>
-            <button id="weatherDescriptionBtn">Pročitaj više o vremenu danas</button>
-            <div id="weatherDescriptionModal" class="modal">
-                <div class="modal-content">
-                    <span class="close">&times;</span>
-                    <p><?= $weatherDescription; ?></p>
+                <button id="weatherDescriptionBtn">Pročitaj više o vremenu danas</button>
+                <div id="weatherDescriptionModal" class="modal">
+                    <div class="modal-content">
+                        <span class="close">&times;</span>
+                        <p><?= htmlspecialchars($weather['description'] ?? 'Opis nije dostupan.'); ?></p>
+                    </div>
                 </div>
+
+                <hr>
+                <h2>Prognoza za narednih 5 dana</h2>
+
+                <?php if (!empty($forecast)): ?>
+                    <div class="forecast">
+                        <?php foreach ($forecast as $day => $data): ?>
+                            <div class="forecast-day">
+                                <p class="date">
+                                    <?= htmlspecialchars($data['day_name'] ?? '') ?> <br>
+                                    <?= date("d.m.", strtotime($day)); ?>
+                                </p>
+                                <img src="<?= $getIconPath($data['icon']) ?>" alt="Weather Icon" style="width: 90px;">
+                                <p>Najviša: <?= round($data['max_temperature']); ?>°C</p>
+                                <p>Najniža: <?= round($data['min_temperature']); ?>°C</p>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <p>Prognoza trenutno nije dostupna.</p>
+                <?php endif; ?>
             </div>
+        <?php endif;  ?>
 
-            <hr>
-            <h2>Prognoza za narednih 5 dana</h2>
-
-            <?php if (isset($forecast)): ?>
-                <div class="forecast">
-                    <?php foreach ($forecast as $day => $data): ?>
-                        <div class="forecast-day">
-                            <p class="date"><?= date("d.m.Y", strtotime($day)); ?></p>
-                            <?php
-                                $fIcon = $data['icon'];
-                                if (in_array($fIcon, ["01d","01n"])) {
-                                    $fPath = "/assets/images/sun.png";
-                                } elseif (in_array($fIcon, ["02d","02n","03d","03n"])) {
-                                    $fPath = "/assets/images/cloudy.png";
-                                } elseif (in_array($fIcon, ["04d","04n"])) {
-                                    $fPath = "/assets/images/overcast.png";
-                                } elseif (in_array($fIcon, ["09d","09n","10d","10n"])) {
-                                    $fPath = "/assets/images/rain.png";
-                                } elseif (in_array($fIcon, ["11d","11n"])) {
-                                    $fPath = "/assets/images/storm.png";
-                                } else {
-                                    $fPath = "https://openweathermap.org/img/wn/" . htmlspecialchars($fIcon) . "@2x.png";
-                                }
-                            ?>
-                            <img src="<?= $fPath ?>" alt="Weather Icon" style="width: 90px;">
-                            <p>Najviša: <?= round($data['max_temperature']); ?>°C</p>
-                            <p>Najniža: <?= round($data['min_temperature']); ?>°C</p>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </div>
     </div>
 
-    <script src="/assets/js/modal.js"></script>
+    <?php if (!isset($error) && isset($weather)): ?>
+        <script src="/assets/js/modal.js"></script>
+    <?php endif; ?>
 </body>
 </html>
