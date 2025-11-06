@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------
 # Pipeline Name
 # -----------------------------------------------------------------
-name: CI - Lint, Build, Push, and Scan
+name: CI - Lint, Test, Build, Push, and Scan
 
 # -----------------------------------------------------------------
 # Triggers: When to run this pipeline
@@ -24,65 +24,82 @@ on:
 # Jobs: What to do
 # -----------------------------------------------------------------
 jobs:
-  # --- JOB #1: Check Code Quality (NEW!) ---
+  # --- JOB #1: Check Code Quality ---
   php_lint:
     name: Check PHP Syntax (Lint)
     runs-on: ubuntu-latest
     steps:
-      # This step checks out your code so the job can access it
       - name: 1. Checkout Code
         uses: actions/checkout@v3
 
-      # This step finds and lints all PHP files
       - name: 2. Run PHP Lint
         run: |
-          # Find all .php files, ignore the 'vendor' folder, and run 'php -l' on each
-          # If 'php -l' fails on any file, xargs will fail, and the step will fail.
           find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
 
-  # --- JOB #2: Build and Push (NOW DEPENDS ON LINT) ---
-  build_and_push:
-    name: Build & Push Docker Image
+  # --- JOB #2: Run Unit Tests (NEW!) ---
+  run_tests:
+    name: Run Unit Tests (PHPUnit)
+    runs-on: ubuntu-latest
     
     # This job MUST wait for 'php_lint' to finish successfully
     needs: php_lint
+
+    steps:
+      - name: 1. Checkout Code
+        uses: actions/checkout@v3
+
+      # This is a special action to install PHP on the runner
+      - name: 2. Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2' # Must match your project's PHP version
+
+      # Composer install is needed to get PHPUnit
+      - name: 3. Install Composer Dependencies
+        run: composer install --prefer-dist --no-progress
+
+      # This command runs your tests.
+      # It will fail if 'phpunit.xml' is missing or if any test fails.
+      - name: 4. Run PHPUnit
+        run: vendor/bin/phpunit
+
+  # --- JOB #3: Build and Push (NOW DEPENDS ON TESTS) ---
+  build_and_push:
+    name: Build & Push Docker Image
+    
+    # This job MUST wait for 'run_tests' to finish successfully
+    needs: run_tests
     
     runs-on: ubuntu-latest
     
-    # We need to 'export' the SHA tag so other jobs can use it
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
 
     steps:
-      # Step 1: Get the code from the repository
       - name: 1. Checkout Code
         uses: actions/checkout@v3
 
-      # Step 2: Log in to Docker Hub using secrets
       - name: 2. Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }} 
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # Step 3: Get the short Git SHA (e.g., '1a2b3c4') to use as a version tag
       - name: 3. Extract Short SHA
         id: vars
         run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
 
-      # Step 4: Build the Docker image and push it to Docker Hub
       - name: 4. Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: ./Dockerfile
           push: true
-          # Tag the image twice: once as 'latest' and once with the unique Git SHA
           tags: |
             ambrus1996/weather-app:latest
             ambrus1996/weather-app:${{ steps.vars.outputs.sha }}
 
-  # --- JOB #3: Security Scan (NOW DEPENDS ON BUILD) ---
+  # --- JOB #4: Security Scan (DEPENDS ON BUILD) ---
   security_scan:
     name: Scan Image (Trivy)
     runs-on: ubuntu-latest
@@ -91,19 +108,11 @@ jobs:
     needs: build_and_push
 
     steps:
-      # Step 1: Run the Trivy scanner
       - name: 1. Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
-          # Tell Trivy which image to scan (using the SHA from the previous job)
           image-ref: 'ambrus1996/weather-app:${{ needs.build_and_push.outputs.sha }}'
-          
-          # Format the output as a clean table in the logs
           format: 'table'
-          
-          # Only show vulnerabilities that have a fix (ignore unfixed ones)
           ignore-unfixed: true
-          
-          # FAIL the pipeline (return exit code 1) ONLY if HIGH or CRITICAL vulnerabilities are found
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
