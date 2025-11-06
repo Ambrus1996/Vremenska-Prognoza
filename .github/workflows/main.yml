@@ -1,28 +1,14 @@
-# -----------------------------------------------------------------
-# Pipeline Name
-# -----------------------------------------------------------------
 name: CI - Lint, Test, Build, Push, and Scan
 
-# -----------------------------------------------------------------
-# Triggers: When to run this pipeline
-# -----------------------------------------------------------------
 on:
-  # 1. Run on push (this will now primarily run *after* a PR is merged)
   push:
     branches:
       - main
-
-  # 2. (NEW!) Run when a Pull Request is opened or updated targeting the 'main' branch
   pull_request:
     branches:
       - main
-
-  # 3. Keep the manual trigger
   workflow_dispatch:
 
-# -----------------------------------------------------------------
-# Jobs: What to do
-# -----------------------------------------------------------------
 jobs:
   # --- JOB #1: Check Code Quality ---
   php_lint:
@@ -31,26 +17,21 @@ jobs:
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
-
       - name: 2. Run PHP Lint
-        run: |
-          find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
+        run: find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
 
- # --- JOB #2: Run Unit Tests (SADA SA SIMULACIJOM SPOROSTI) ---
+  # --- JOB #2: Run Unit Tests (WITH CACHE) ---
   run_tests:
     name: Run Unit Tests (PHPUnit)
     runs-on: ubuntu-latest
     needs: php_lint
-
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
-
       - name: 2. Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-
       - name: 3. Cache Composer dependencies
         id: composer-cache
         uses: actions/cache@v3
@@ -59,46 +40,37 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-composer-
-
-      - name: 4. Install Composer Dependencies (if cache missed)
+      - name: 4. Install Composer Dependencies
         if: steps.composer-cache.outputs.cache-hit != 'true'
-        run: |
-          composer install --prefer-dist --no-progress
-          # --- SIMULACIJA SPOROG PROJEKTA ---
-          echo "Simuliram spori 'composer install'... spavam 60 sekundi."
-          sleep 60
-          # --- KRAJ SIMULACIJE ---
-
+        run: composer install --prefer-dist --no-progress
       - name: 5. Run PHPUnit
         run: vendor/bin/phpunit
 
-  # --- JOB #3: Build and Push (NOW DEPENDS ON TESTS) ---
+  # --- JOB #3: Build and Push (SADA SA DOCKER KEŠIRANJEM!) ---
   build_and_push:
     name: Build & Push Docker Image
-    
-    # This job MUST wait for 'run_tests' to finish successfully
     needs: run_tests
-    
     runs-on: ubuntu-latest
-    
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
-
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
+        
+      # --- OVO JE NOVI OBAVEZAN KORAK ZA DOCKER CACHE ---
+      - name: 2. Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: 2. Log in to Docker Hub
+      - name: 3. Log in to Docker Hub
         uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }} 
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: 3. Extract Short SHA
+      - name: 4. Extract Short SHA
         id: vars
         run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
 
-      - name: 4. Build and Push Docker Image
+      - name: 5. Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -107,15 +79,15 @@ jobs:
           tags: |
             ambrus1996/weather-app:latest
             ambrus1996/weather-app:${{ steps.vars.outputs.sha }}
+          # --- OVE DVE LINIJE SU MAGIJA ZA KEŠIRANJE ---
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  # --- JOB #4: Security Scan (DEPENDS ON BUILD) ---
+  # --- JOB #4: Security Scan ---
   security_scan:
     name: Scan Image (Trivy)
     runs-on: ubuntu-latest
-    
-    # This job MUST wait for 'build_and_push' to finish successfully
     needs: build_and_push
-
     steps:
       - name: 1. Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
