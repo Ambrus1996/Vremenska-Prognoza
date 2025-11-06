@@ -1,7 +1,10 @@
 <?php
+
 namespace App\Controllers;
 
-require_once __DIR__ . '/../../app/models/City.php';
+use App\Models\City;
+
+require_once __DIR__ . '/../models/City.php';
 
 class WeatherController
 {
@@ -14,25 +17,28 @@ class WeatherController
 
     public function showWeather($cityName = null)
     {
-        $cityModel = new \City();
-
-        if ($cityName === null || $cityName === '') {
-            $cityName = 'Beograd';
-        }
-
+        $cityName = $cityName ?: 'Beograd';
         $cityName = trim($cityName);
-        $cityName = mb_convert_case($cityName, MB_CASE_TITLE, "UTF-8");
 
-        // prvo povuci vreme – tu imamo i country
-        $weather  = $this->weatherAPI->getWeatherByCityName($cityName);
-        $forecast = $this->weatherAPI->get5DayForecastByCityName($cityName);
+        $weather = null;
+        $forecast = [];
+        $error = null;
 
-        $country = $weather['country'] ?? ($weather['sys']['country'] ?? null);
+        try {
+            $weather  = $this->weatherAPI->getWeatherByCityName($cityName);
+            $forecast = $this->weatherAPI->get5DayForecastByCityName($cityName);
 
-        // da li grad već postoji u bazi?
-        $exists = $cityModel->findByName($cityName);
-        if (!$exists) {
-            $cityModel->create($cityName, $country);
+            if (!$weather) {
+                throw new \Exception("Could not find weather data for city: " . htmlspecialchars($cityName));
+            }
+
+            $cityModel = new City();
+            if (!$cityModel->findByName($cityName)) {
+                $cityModel->create($cityName, $weather['country']);
+            }
+
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
         }
 
         require __DIR__ . '/../views/weather_view.php';
