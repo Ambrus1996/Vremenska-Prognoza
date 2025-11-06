@@ -1,5 +1,8 @@
 <?php
 
+namespace App\Models;
+
+// We still need to require the database configuration if it's not autoloaded yet.
 require_once __DIR__ . '/../../config/database.php';
 
 class City
@@ -9,7 +12,9 @@ class City
 
     public function __construct()
     {
-        $database   = new \Database();
+        // Assuming 'Database' class is still global (no namespace yet),
+        // we use '\Database' to refer to it from within this namespace.
+        $database = new \Database();
         $this->conn = $database->connect();
     }
 
@@ -18,6 +23,7 @@ class City
         $stmt = $this->conn->prepare("SELECT id, name, country FROM {$this->table} WHERE name = :name LIMIT 1");
         $stmt->execute(['name' => $name]);
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
         return $row ?: null;
     }
 
@@ -28,6 +34,7 @@ class City
             'name'    => $name,
             'country' => $country,
         ]);
+
         return (int) $this->conn->lastInsertId();
     }
 
