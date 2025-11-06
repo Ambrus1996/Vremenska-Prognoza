@@ -13,7 +13,7 @@ class WeatherAPI
     {
         $this->apiKey = $apiKey;
         $this->client = new Client([
-            'base_uri' => 'http://api.openweathermap.org/data/2.5/',
+            'base_uri' => 'https://api.openweathermap.org/data/2.5/',
             'timeout'  => 5.0, // Added timeout to prevent indefinite hanging
         ]);
     }
