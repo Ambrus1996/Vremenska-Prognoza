@@ -6,11 +6,12 @@ services:
       - "8000:80"
     volumes:
       - .:/var/www/html
-      - /var/www/html/vendor
+      - /var/www/html/vendor # [FIX] Protects the container's vendor folder from being overwritten by host volume
     env_file:
       - .env
     depends_on:
-      - weather_db
+      weather_db:
+        condition: service_healthy # [FIX] Waits for the database to be fully ready before starting the app
 
   weather_db:
     image: mysql:8.0
@@ -25,7 +26,13 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # [FIX] Automatically initializes the database schema on first run
+    # [FIX] Healthcheck to ensure the database is actually ready to accept connections
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "weather_user", "-pweather_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   weather_pma:
     image: phpmyadmin/phpmyadmin
@@ -38,7 +45,8 @@ services:
     ports:
       - "8080:80"
     depends_on:
-       - weather_db
+      weather_db:
+        condition: service_healthy # phpMyAdmin should also wait for the DB to be healthy
 
 volumes:
   db_data:
