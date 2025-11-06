@@ -36,31 +36,40 @@ jobs:
         run: |
           find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
 
-  # --- JOB #2: Run Unit Tests (NEW!) ---
+ # --- JOB #2: Run Unit Tests (SADA SA SIMULACIJOM SPOROSTI) ---
   run_tests:
     name: Run Unit Tests (PHPUnit)
     runs-on: ubuntu-latest
-    
-    # This job MUST wait for 'php_lint' to finish successfully
     needs: php_lint
 
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
 
-      # This is a special action to install PHP on the runner
       - name: 2. Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2' # Must match your project's PHP version
+          php-version: '8.2'
 
-      # Composer install is needed to get PHPUnit
-      - name: 3. Install Composer Dependencies
-        run: composer install --prefer-dist --no-progress
+      - name: 3. Cache Composer dependencies
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
 
-      # This command runs your tests.
-      # It will fail if 'phpunit.xml' is missing or if any test fails.
-      - name: 4. Run PHPUnit
+      - name: 4. Install Composer Dependencies (if cache missed)
+        if: steps.composer-cache.outputs.cache-hit != 'true'
+        run: |
+          composer install --prefer-dist --no-progress
+          # --- SIMULACIJA SPOROG PROJEKTA ---
+          echo "Simuliram spori 'composer install'... spavam 60 sekundi."
+          sleep 60
+          # --- KRAJ SIMULACIJE ---
+
+      - name: 5. Run PHPUnit
         run: vendor/bin/phpunit
 
   # --- JOB #3: Build and Push (NOW DEPENDS ON TESTS) ---
