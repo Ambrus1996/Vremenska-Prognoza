@@ -7,15 +7,15 @@ services:
     ports:
       - "8000:80"
     
-    # [FIX] Code volumes removed per mentor feedback.
-    # We now rely 100% on the code built into the Docker image.
-    # This is the standard practice for CI/CD and production environments.
+    # [FIX] Code volumes removed per mentor feedback (High Severity).
+    # We now rely 100% on the code built *into* the Docker image via the Dockerfile.
+    # This prevents the local host from overwriting the container's 'vendor' directory.
     
     env_file:
       - .env
     depends_on:
       weather_db:
-        condition: service_healthy # Waits for the database to be fully ready before starting
+        condition: service_healthy # [FIX] Waits for the database to be fully ready before starting
 
   weather_db:
     image: mysql:8.0
@@ -30,7 +30,9 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Automatically initializes the schema
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Automatically initializes the schema on first run
+    
+    # [FIX] Healthcheck ensures the 'weather_app' doesn't start until the DB is truly ready
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "weather_user", "-pweather_pass"]
       interval: 10s
