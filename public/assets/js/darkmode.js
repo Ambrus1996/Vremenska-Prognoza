@@ -1,39 +1,41 @@
+// File: public/assets/js/modal.js
+
 // We wait for the entire HTML document to be loaded and parsed
 document.addEventListener("DOMContentLoaded", function() {
-    
-    // Now it's safe to find our elements
-    const body = document.body;
-    const button = document.getElementById("toggleDarkMode");
 
-    // Safety check: if the button doesn't exist on the page, stop right here.
-    if (!button) {
+    // Get the modal element
+    var modal = document.getElementById("weatherDescriptionModal");
+
+    // Get the button that opens the modal
+    var btn = document.getElementById("weatherDescriptionBtn");
+
+    // Get the <span> element that closes the modal
+    var span = document.getElementsByClassName("close")[0];
+
+    // Safety check: if these elements don't exist on the page (e.g., error page),
+    // stop the script right here to prevent errors.
+    if (!modal || !btn || !span) {
         return;
     }
 
-    // --- Part 1: Set the initial state on page load ---
-    if(localStorage.getItem("theme") === "dark") {
-        body.classList.add("dark-mode");
-        button.textContent = "Svetli režim"; // Light mode
-    } else {
-        body.classList.remove("dark-mode");
-        button.textContent = "Noćni režim"; // Night mode
+    // When the user clicks the button, open the modal 
+    btn.onclick = function() {
+        modal.style.display = "block";
     }
 
-    // --- Part 2: [FIX] Add the click listener *inside* DOMContentLoaded ---
-    // This code now runs ONLY after the button is guaranteed to exist.
-    button.addEventListener("click", function() {
-        if(body.classList.contains("dark-mode")) {
-            // Switch to Light Mode
-            body.classList.remove("dark-mode");
-            button.textContent = "Noćni režim";
-            localStorage.setItem("theme", "light");
-        } else {
-            // Switch to Dark Mode
-            body.classList.add("dark-mode");
-            button.textContent = "Svetli režim";
-            localStorage.setItem("theme", "dark");
-        }
-    });
-});
+    // When the user clicks on <span> (x), close the modal
+    span.onclick = function() {
+        modal.style.display = "none";
+    }
 
-// The global event listener that was here is now GONE, because it's inside the block above.
+    // When the user clicks anywhere outside of the modal, close it
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
+
+    // [FIX] Removed the duplicated, buggy .onclick function that referenced
+    // the non-existent 'weatherDetailsText' element.
+    // The simple logic above is all that's needed.
+});
