@@ -10,12 +10,6 @@
 <?php
 
 require_once __DIR__ . '/../vendor/autoload.php';
-
-
-// Ucitavanje .env 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..'); 
-$dotenv->load();
-
 require_once __DIR__ . '/../app/models/WeatherAPI.php'; 
 require_once __DIR__ . '/../app/controllers/WeatherController.php'; 
 
