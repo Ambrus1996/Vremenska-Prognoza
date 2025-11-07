@@ -34,21 +34,14 @@ class WeatherAPI
             $body = $response->getBody()->getContents();
             $weatherData = json_decode($body);
 
-            // --- [FIX - High] Validate the API payload BEFORE accessing properties ---
+            // --- [FIX - High] Validate the API payload ---
             if (json_last_error() !== JSON_ERROR_NONE) {
-                // The API returned broken/malformed JSON.
-                error_log("WeatherAPI Error: API returned invalid JSON.");
                 throw new \Exception("API returned invalid JSON response.");
             }
-            
-            // Check for the *existence* of nested properties before trying to read them.
-            // This handles cases where the city is not found (404) or the API response is partial.
             if (!isset($weatherData->sys, $weatherData->main, $weatherData->weather[0], $weatherData->wind)) {
-                error_log("WeatherAPI Error: Weather data structure is incomplete for city: " . $cityName);
                 throw new \Exception("Weather data structure is incomplete for " . htmlspecialchars($cityName));
             }
             // --- End of Validation Fix ---
-
 
             $dateTime = new \DateTime('@' . $weatherData->dt);
             $dateTime->setTimezone(new \DateTimeZone('UTC'));
@@ -67,16 +60,14 @@ class WeatherAPI
                 'windSpeed'   => isset($weatherData->wind->speed) ? round($weatherData->wind->speed * 3.6, 2) : 'N/A',
                 'feelsLike'   => $weatherData->main->feels_like ?? 'N/A',
                 'visibility'  => isset($weatherData->visibility) ? ($weatherData->visibility / 1000) : 'N/A',
-                'uvIndex'     => 'N/A', // Not available on this endpoint
+                'uvIndex'     => 'N/A',
                 'description' => $weatherData->weather[0]->description ?? ''
             ];
             
-        } catch (ClientException $e) {
-            // Catches 4xx errors (e.g., 401 Bad API Key, 404 City Not Found)
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
             error_log("WeatherAPI ClientException: " . $e->getMessage());
-            return null; // Return null to signal failure to the controller
+            return null;
         } catch (\Exception $e) {
-            // Catches our validation errors (Bad JSON, missing fields) or other general errors
             error_log("WeatherAPI Exception: " . $e->getMessage());
             return null;
         }
