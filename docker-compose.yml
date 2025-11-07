@@ -1,17 +1,21 @@
+version: '3.8' # [FIX] Specify Compose version to ensure healthcheck 'condition' is supported
+
 services:
   weather_app:
     build: .
     container_name: weather_app
     ports:
       - "8000:80"
-    volumes:
-      - .:/var/www/html
-      - /var/www/html/vendor # [FIX] Protects the container's vendor folder from being overwritten by host volume
+    
+    # [FIX] Code volumes removed per mentor feedback.
+    # We now rely 100% on the code built into the Docker image.
+    # This is the standard practice for CI/CD and production environments.
+    
     env_file:
       - .env
     depends_on:
       weather_db:
-        condition: service_healthy # [FIX] Waits for the database to be fully ready before starting the app
+        condition: service_healthy # Waits for the database to be fully ready before starting
 
   weather_db:
     image: mysql:8.0
@@ -26,8 +30,7 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # [FIX] Automatically initializes the database schema on first run
-    # [FIX] Healthcheck to ensure the database is actually ready to accept connections
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Automatically initializes the schema
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "weather_user", "-pweather_pass"]
       interval: 10s
@@ -46,7 +49,7 @@ services:
       - "8080:80"
     depends_on:
       weather_db:
-        condition: service_healthy # phpMyAdmin should also wait for the DB to be healthy
+        condition: service_healthy # phpMyAdmin should also wait for the DB
 
 volumes:
   db_data:
