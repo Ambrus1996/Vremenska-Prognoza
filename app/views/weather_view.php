@@ -1,10 +1,12 @@
+<?php
+// Variables $cityName, $weather, $forecast, $error are passed from the Controller
+?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Vremenska Prognoza</title>
     <link rel="stylesheet" href="/assets/css/styles.css">
-    <script src="/assets/js/darkmode.js"></script>
-</head>
+    </head>
 <body>
     <div class="container">
         <button id="toggleDarkMode">Noćni režim</button>
@@ -27,7 +29,7 @@
                 <hr>
                 <div class="current-weather">
                     <?php
-                        // Helper funkcija za ikone (da ne ponavljamo logiku)
+                        // Helper function for icons
                         $getIconPath = function($iconCode) {
                              if (in_array($iconCode, ["01d","01n"])) return "/assets/images/sun.png";
                              if (in_array($iconCode, ["02d","02n","03d","03n"])) return "/assets/images/cloudy.png";
@@ -39,12 +41,16 @@
                         $iconPath = $getIconPath($weather['icon']);
                     ?>
                     <img src="<?= $iconPath ?>" alt="Weather Icon" style="width: 150px;">
-                    <p class="temperature"><?= round($weather['temperature']); ?>°C</p>
+                    
+                    <p class="temperature">
+                        <?= is_numeric($weather['temperature']) ? round($weather['temperature']) . '°C' : $weather['temperature']; ?>
+                    </p>
+                    
                     <p class="details">
                         Vlažnost: <?= $weather['humidity']; ?>%<br>
                         Lokalno vreme: <?= $weather['local_time']; ?><br>
                         Brzina vetra: <?= $weather['windSpeed']; ?> km/h<br>
-                        Osećaj temperature: <?= round($weather['feelsLike']); ?>°C<br>
+                        Osećaj temperature: <?= is_numeric($weather['feelsLike']) ? round($weather['feelsLike']) . '°C' : $weather['feelsLike']; ?><br>
                         Vidljivost: <?= $weather['visibility']; ?> km<br>
                     </p>
                 </div>
@@ -69,8 +75,8 @@
                                     <?= date("d.m.", strtotime($day)); ?>
                                 </p>
                                 <img src="<?= $getIconPath($data['icon']) ?>" alt="Weather Icon" style="width: 90px;">
-                                <p>Najviša: <?= round($data['max_temperature']); ?>°C</p>
-                                <p>Najniža: <?= round($data['min_temperature']); ?>°C</p>
+                                <p>Najviša: <?= is_numeric($data['max_temperature']) ? round($data['max_temperature']) . '°C' : $data['max_temperature']; ?></p>
+                                <p>Najniža: <?= is_numeric($data['min_temperature']) ? round($data['min_temperature']) . '°C' : $data['min_temperature']; ?></p>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -78,10 +84,11 @@
                     <p>Prognoza trenutno nije dostupna.</p>
                 <?php endif; ?>
             </div>
-        <?php endif;  ?>
+        <?php endif; // End if (!isset($error) && isset($weather)) ?>
 
     </div>
 
+    <script src="/assets/js/darkmode.js"></script>
     <?php if (!isset($error) && isset($weather)): ?>
         <script src="/assets/js/modal.js"></script>
     <?php endif; ?>
