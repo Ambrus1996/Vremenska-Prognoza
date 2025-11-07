@@ -1,32 +1,27 @@
-# --- Faza 1: Composer (Dependency Builder) ---
-# Koristimo zvaničnu Composer sliku da instaliramo zavisnosti
+# --- Stage 1: Composer Dependency Builder ---
+# Use the official composer image to install dependencies
 FROM composer:2 as vendor
-
 WORKDIR /app
-# Kopiramo samo fajlove potrebne za instalaciju zavisnosti
 COPY composer.json composer.lock ./
-# Instaliramo samo produkcijske zavisnosti, optimizovano
+# Install only production dependencies, optimized autoloader
 RUN composer install --no-dev --optimize-autoloader
 
-
-# --- Faza 2: Produkcijska Slika (PHP + Apache) ---
+# --- Stage 2: Production Image (PHP + Apache) ---
 FROM php:8.2-apache
 
-# Instaliramo potrebne PHP ekstenzije
+# Install required PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
 
 WORKDIR /var/www/html
 
-# Kopiramo zavisnosti (vendor folder) iz prve faze
-COPY --from=vendor /app/vendor/ /var/www/html/vendor/
-# Kopiramo ostatak aplikacije
-COPY . /var/www/html
-
-# Postavljamo Apache da gleda u 'public' folder
+# Enable Apache's mod_rewrite for nice URLs (e.g., /city/London)
+RUN a2enmod rewrite
+# Set Apache's document root to the /public directory, which is more secure
 RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
-# Omogućavamo mod_rewrite za lepe URL-ove (framework-friendly)
-RUN a2enmod rewrite
+# [FIX] Copy vendor folder from the 'vendor' stage WITH the correct owner
+COPY --chown=www-data:www-data --from=vendor /app/vendor/ ./vendor/
+# [FIX] Copy the rest of the application code WITH the correct owner
+COPY --chown=www-data:www-data . .
 
-# Postavljamo ispravne dozvole
-RUN chown -R www-data:www-data /var/www/html
+# We no longer need the slow 'RUN chown -R' at the end, which speeds up the build.
