@@ -127,7 +127,7 @@ jobs:
 
       - name: 2. Send Deployment Command via SSM
         # This action sends the command to your EC2 server without needing SSH
-        uses: aws-actions/aws-ssm-send-command@v1
+        uses: aws-actions/amazon-ssm-send-command@v1
         with:
           # --- !!! VAZNO - ZAMENI OVO !!! ---
           # Find this ID on your AWS EC2 -> Instances page.
