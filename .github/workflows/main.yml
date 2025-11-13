@@ -1,14 +1,21 @@
-name: CI - Lint, Test, Build, Push, and Scan
+name: CI/CD - Lint, Test, Build, Push, and Deploy
 
+# --- Triggers ---
 on:
-  push:
-    branches:
-      - main
+  # 1. CI runs on Pull Requests targeting 'main'
   pull_request:
     branches:
       - main
+  
+  # 2. CI + CD runs on a push (merge) to 'main'
+  push:
+    branches:
+      - main
+
+  # 3. Allows manual runs from the Actions tab
   workflow_dispatch:
 
+# --- Jobs ---
 jobs:
   # --- JOB #1: Check Code Quality ---
   php_lint:
@@ -17,22 +24,18 @@ jobs:
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
-
-      # [NOVO] Eksplicitno instaliramo PHP da budemo sigurni
       - name: 2. Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-
       - name: 3. Run PHP Lint
-        run: |
-          find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
+        run: find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
 
   # --- JOB #2: Run Unit Tests (WITH CACHE) ---
   run_tests:
     name: Run Unit Tests (PHPUnit)
     runs-on: ubuntu-latest
-    needs: php_lint
+    needs: php_lint # Waits for Job #1
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
@@ -46,29 +49,24 @@ jobs:
         with:
           path: vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
-      - name: 4. Install Composer Dependencies
+      - name: 4. Install Composer Dependencies (if cache missed)
         if: steps.composer-cache.outputs.cache-hit != 'true'
         run: composer install --prefer-dist --no-progress
       - name: 5. Run PHPUnit
         run: vendor/bin/phpunit
 
-  # --- JOB #3: Build and Push (SADA SA DOCKER KEŠIRANJEM!) ---
+  # --- JOB #3: Build and Push (WITH DOCKER CACHE) ---
   build_and_push:
     name: Build & Push Docker Image
-    needs: run_tests
+    needs: run_tests # Waits for Job #2
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
-        
-      # --- OVO JE NOVI OBAVEZAN KORAK ZA DOCKER CACHE ---
       - name: 2. Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
-
       - name: 3. Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -77,7 +75,6 @@ jobs:
       - name: 4. Extract Short SHA
         id: vars
         run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
-
       - name: 5. Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
@@ -87,7 +84,6 @@ jobs:
           tags: |
             ambrus1996/weather-app:latest
             ambrus1996/weather-app:${{ steps.vars.outputs.sha }}
-          # --- OVE DVE LINIJE SU MAGIJA ZA KEŠIRANJE ---
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -95,13 +91,62 @@ jobs:
   security_scan:
     name: Scan Image (Trivy)
     runs-on: ubuntu-latest
-    needs: build_and_push
+    needs: build_and_push # Waits for Job #3
     steps:
       - name: 1. Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.24.0 # Pinned to a specific version
         with:
           image-ref: 'ambrus1996/weather-app:${{ needs.build_and_push.outputs.sha }}'
           format: 'table'
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
+
+  # --- JOB #5: DEPLOYMENT (CD) ---
+  # This is the new job that deploys the code to your server
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    
+    # This job MUST wait for the entire CI chain to succeed
+    needs: security_scan 
+    
+    # This 'if' condition is CRITICAL:
+    # It ensures this job runs ONLY on a 'push' event to 'main' (i.e., after a PR merge)
+    # and NOT on a 'pull_request' event.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 1. Configure AWS Credentials
+        # This action logs our 'bot' into AWS using the secrets we stored
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1 # Your server's region (Stockholm)
+
+      - name: 2. Send Deployment Command via SSM
+        # This action sends the command to your EC2 server without needing SSH
+        uses: aws-actions/aws-ssm-send-command@v1
+        with:
+          # --- !!! VAZNO - ZAMENI OVO !!! ---
+          # Find this ID on your AWS EC2 -> Instances page.
+          instance-ids: "i-0224c6322741fbc71" 
+          
+          # The folder we cloned our repo into on the server
+          working-directory: "/home/ec2-user/vremenska-prognoza/Vremenska-Prognoza"
+          
+          # The commands to run on the server
+          command: |
+            echo "--- [${{ github.sha }}] Starting Deployment ---"
+            
+            # 1. Pull the latest code (including this new main.yml)
+            git pull origin main
+            
+            # 2. Refresh the .env file from the AWS "vault" (SSM)
+            aws ssm get-parameters-by-path --path "/weather-app/" --with-decryption --query "Parameters[*].{Name:Name,Value:Value}" --output text | awk '{gsub("/weather-app/","",$1); print $1 "=" $2}' > .env
+            
+            # 3. Rebuild and restart the containers using our 'fix'
+            DOCKER_BUILDKIT=0 docker-compose up -d --build
+            
+            echo "--- Deployment Finished ---"
