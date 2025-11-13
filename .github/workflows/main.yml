@@ -87,14 +87,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # --- JOB #4: Security Scan ---
+# --- JOB #4: Security Scan ---
   security_scan:
     name: Scan Image (Trivy)
     runs-on: ubuntu-latest
-    needs: build_and_push # Waits for Job #3
+    needs: build_and_push # Čeka da se build završi
+
     steps:
-      - name: 1. Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@0.24.0 # Pinned to a specific version
+      # --- DODAJ OVAJ KORAK ---
+      - name: 1. Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      
+      # --- TRIVY KORAK JE SADA KORAK #2 ---
+      - name: 2. Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: 'ambrus1996/weather-app:${{ needs.build_and_push.outputs.sha }}'
           format: 'table'
@@ -129,7 +138,6 @@ jobs:
         # This action sends the command to your EC2 server without needing SSH
         uses: aws-actions/amazon-ssm-send-command@v1
         with:
-          # --- !!! VAZNO - ZAMENI OVO !!! ---
           # Find this ID on your AWS EC2 -> Instances page.
           instance-ids: "i-0224c6322741fbc71" 
           
