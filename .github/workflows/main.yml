@@ -111,8 +111,7 @@ jobs:
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
 
-  # --- JOB #5: DEPLOYMENT (CD) ---
-  # This is the new job that deploys the code to your server
+ # --- JOB #5: DEPLOYMENT (CD) ---
   deploy:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
@@ -121,40 +120,37 @@ jobs:
     needs: security_scan 
     
     # This 'if' condition is CRITICAL:
-    # It ensures this job runs ONLY on a 'push' event to 'main' (i.e., after a PR merge)
-    # and NOT on a 'pull_request' event.
+    # It ensures this job runs ONLY on a 'push' event to 'main'
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-      - name: 1. Configure AWS Credentials
-        # This action logs our 'bot' into AWS using the secrets we stored
-        uses: aws-actions/configure-aws-credentials@v4
+      # We are now using a community action: 'peterkimzz/aws-ssm-send-command'
+      # This action handles credentials and sending the command in one step.
+      - name: Send Deployment Command via SSM
+        uses: peterkimzz/aws-ssm-send-command@master # <-- OVO JE ISPRAVAN ALAT
         with:
+          # AWS Credentials (from GitHub Secrets)
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1 # Your server's region (Stockholm)
-
-      - name: 2. Send Deployment Command via SSM
-        # This action sends the command to your EC2 server without needing SSH
-        uses: amazon-actions/aws-ssm-send-command@v1
-        with:
-          # Find this ID on your AWS EC2 -> Instances page.
-          instance-ids: "i-0224c6322741fbc71" 
           
-          # The folder we cloned our repo into on the server
+          # Target Instance
+          instance-ids: "i-0224c6322741fbc71" # Your EC2 Instance ID
+          
+          # Folder to run commands in
           working-directory: "/home/ec2-user/vremenska-prognoza/Vremenska-Prognoza"
           
-          # The commands to run on the server
+          # Commands to run on the server
           command: |
             echo "--- [${{ github.sha }}] Starting Deployment ---"
             
-            # 1. Pull the latest code (including this new main.yml)
+            # 1. Pull the latest code
             git pull origin main
             
             # 2. Refresh the .env file from the AWS "vault" (SSM)
             aws ssm get-parameters-by-path --path "/weather-app/" --with-decryption --query "Parameters[*].{Name:Name,Value:Value}" --output text | awk '{gsub("/weather-app/","",$1); print $1 "=" $2}' > .env
             
-            # 3. Rebuild and restart the containers using our 'fix'
+            # 3. Rebuild and restart the containers
             DOCKER_BUILDKIT=0 docker-compose up -d --build
             
             echo "--- Deployment Finished ---"
