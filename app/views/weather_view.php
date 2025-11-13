@@ -9,7 +9,7 @@
     </head>
 <body>
     <div class="container">
-        <button id="toggleDarkMode">Noćni režim</button>
+        <button id="toggleDarkMode">Noćni režiM</button>
         <h1>Vremenska Prognoza</h1>
 
         <form action="index.php" method="get" class="search-form">
