@@ -132,6 +132,7 @@ jobs:
             --parameters 'commands=[
               "cd /home/ec2-user/vremenska-prognoza/Vremenska-Prognoza",
               "echo \"--- [${{ github.sha }}] Starting Deployment ---\"",
+              "git pull origin main",
               "docker-compose pull",
               "docker-compose up -d",
               "echo \"--- Deployment Finished ---\""
