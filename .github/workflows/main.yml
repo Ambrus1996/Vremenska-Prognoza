@@ -132,9 +132,8 @@ jobs:
             --parameters 'commands=[
               "cd /home/ec2-user/vremenska-prognoza/Vremenska-Prognoza",
               "echo \"--- [${{ github.sha }}] Starting Deployment ---\"",
-              "git pull origin main",
-              "aws ssm get-parameters-by-path --path \"/weather-app/\" --with-decryption --query \"Parameters[*].{Name:Name,Value:Value}\" --output text | awk '\''{gsub(\"/weather-app/\",\"\",$1); print $1 \"=\" $2}'\'' > .env",
-              "DOCKER_BUILDKIT=0 docker-compose up -d --build",
+              "docker-compose pull",
+              "docker-compose up -d",
               "echo \"--- Deployment Finished ---\""
             ]' \
             --output text \
