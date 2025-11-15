@@ -2,7 +2,7 @@ version: '3.8' # [FIX] Specify Compose version to ensure healthcheck 'condition'
 
 services:
   weather_app:
-    build: .
+    image: ambrus1996/weather-app:latest
     container_name: weather_app
     ports:
       - "8000:80"
