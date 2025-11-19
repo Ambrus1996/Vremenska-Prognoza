@@ -1,21 +1,26 @@
-version: '3.8' # [FIX] Specify Compose version to ensure healthcheck 'condition' is supported
+version: '3.8'
 
 services:
   weather_app:
+    # [CHANGED] Use the pre-built image from Docker Hub instead of building locally
+    # This ensures the deployed code is exactly what was tested in CI/CD
     image: ambrus1996/weather-app:latest
+    
     container_name: weather_app
+    restart: always
+    
+    # [CHANGED] Map port 80 (Host) to 80 (Container) for standard HTTP access
     ports:
-      - "8000:80"
+      - "80:80"
     
-    # [FIX] Code volumes removed per mentor feedback.
-    # We now rely 100% on the code built into the Docker image.
-    # This is the standard practice for CI/CD and production environments.
-    
+    # Load environment variables (DB credentials, API keys)
     env_file:
       - .env
+      
+    # Wait for Database to be healthy before starting the app
     depends_on:
       weather_db:
-        condition: service_healthy # Waits for the database to be fully ready before starting
+        condition: service_healthy
 
   weather_db:
     image: mysql:8.0
@@ -29,8 +34,10 @@ services:
     ports:
       - "3306:3306"
     volumes:
+      # Persist database data
       - db_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql # Automatically initializes the schema
+      # Initialize schema on first run
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "weather_user", "-pweather_pass"]
       interval: 10s
@@ -49,7 +56,7 @@ services:
       - "8080:80"
     depends_on:
       weather_db:
-        condition: service_healthy # phpMyAdmin should also wait for the DB
+        condition: service_healthy
 
 volumes:
   db_data:
