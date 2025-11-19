@@ -1,13 +1,18 @@
 # --- Stage 1: Composer Dependency Builder ---
-# Use the official composer image to install dependencies
-FROM composer:2 as vendor
+# [CHANGED] Koristimo tacnu verziju 2.8.1 umesto samo "2"
+FROM composer:2.8.1 as vendor
+
 WORKDIR /app
 COPY composer.json composer.lock ./
 # Install only production dependencies, optimized autoloader
 RUN composer install --no-dev --optimize-autoloader
 
 # --- Stage 2: Production Image (PHP + Apache) ---
-FROM php:8.2-apache
+# [CHANGED] Koristimo tacnu verziju 8.2.25-apache umesto "8.2-apache"
+FROM php:8.2.25-apache
+
+# [PRO FIX] Update Linux packages to fix known CVEs
+RUN apt-get update && apt-get upgrade -y && apt-get clean
 
 # Install required PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
@@ -19,9 +24,7 @@ RUN a2enmod rewrite
 # Set Apache's document root to the /public directory, which is more secure
 RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
-# [FIX] Copy vendor folder from the 'vendor' stage WITH the correct owner
+# Copy vendor folder from the 'vendor' stage WITH the correct owner
 COPY --chown=www-data:www-data --from=vendor /app/vendor/ ./vendor/
-# [FIX] Copy the rest of the application code WITH the correct owner
+# Copy the rest of the application code WITH the correct owner
 COPY --chown=www-data:www-data . .
-
-# We no longer need the slow 'RUN chown -R' at the end, which speeds up the build.
