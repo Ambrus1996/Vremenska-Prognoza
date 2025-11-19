@@ -11,6 +11,9 @@ RUN composer install --no-dev --optimize-autoloader
 # [CHANGED] Koristimo tacnu verziju 8.2.25-apache umesto "8.2-apache"
 FROM php:8.2.25-apache
 
+# [PRO FIX] Update Linux packages to fix known CVEs
+RUN apt-get update && apt-get upgrade -y && apt-get clean
+
 # Install required PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
 
