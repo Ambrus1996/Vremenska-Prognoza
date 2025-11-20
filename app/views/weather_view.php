@@ -4,13 +4,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>vremenska prognoza</title>
+    <title>VREMENSKA PROGNOZA</title>
     <link rel="stylesheet" href="/assets/css/styles.css">
     </head>
 <body>
     <div class="container">
         <button id="toggleDarkMode">Noćni režim</button>
-        <h1>vremenska prognoza</h1>
+        <h1>Vremenska Prognoza</h1>
 
         <form action="index.php" method="get" class="search-form">
             <input type="text" id="city" name="city" placeholder="Unesite grad..." value="<?= htmlspecialchars($cityName ?? '') ?>">
