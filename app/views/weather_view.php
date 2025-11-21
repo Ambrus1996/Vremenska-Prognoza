@@ -4,7 +4,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>VREMENSKA PROGNOZA</title>
+    <title>Vremenska Prognoza</title>
     <link rel="stylesheet" href="/assets/css/styles.css">
     </head>
 <body>
