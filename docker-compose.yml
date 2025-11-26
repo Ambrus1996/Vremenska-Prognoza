@@ -1,32 +1,49 @@
 version: '3.8'
 
 services:
+
+  # --- NGINX (Reverse Proxy / Receptionist) ---
+  nginx:
+    image: nginx:latest
+    container_name: weather_nginx
+    restart: always
+    ports:
+      # Nginx handles external traffic on port 80
+      - "80:80"
+    volumes:
+      # Mount the Nginx configuration file
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - weather_app
+
+  # --- APP (The Chef / PHP Application) ---
   weather_app:
-    # [CHANGED] Use the pre-built image from Docker Hub instead of building locally
-    # This ensures the deployed code is exactly what was tested in CI/CD
+    # Use the pre-built image from Docker Hub
     image: ambrus1996/weather-app:latest
     
     container_name: weather_app
     restart: always
     
-    # [CHANGED] Map port 80 (Host) to 80 (Container) for standard HTTP access
-    ports:
-      - "80:80"
+    # [IMPORTANT] Ports section REMOVED.
+    # This container is no longer exposed directly to the internet.
+    # It talks only to Nginx via the internal Docker network.
     
-    # Load environment variables (DB credentials, API keys)
+    # Load environment variables
     env_file:
       - .env
       
-    # Wait for Database to be healthy before starting the app
+    # Wait for Database to be healthy before starting
     depends_on:
       weather_db:
         condition: service_healthy
 
+  # --- DATABASE (MySQL) ---
   weather_db:
     image: mysql:8.0
     container_name: weather_db
     restart: always
     environment:
+      # Ideally, these should also use ${VARIABLES} from .env in the future
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: weather
       MYSQL_USER: weather_user
@@ -34,9 +51,9 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      # Persist database data
+      # Persist database data so it survives container restarts
       - db_data:/var/lib/mysql
-      # Initialize schema on first run
+      # Initialize schema on the very first run
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "weather_user", "-pweather_pass"]
@@ -44,6 +61,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- PHPMYADMIN (Database GUI) ---
   weather_pma:
     image: phpmyadmin/phpmyadmin
     container_name: weather_pma
@@ -53,6 +71,7 @@ services:
       PMA_USER: root
       PMA_PASSWORD: root
     ports:
+      # Exposed on port 8080 for database management
       - "8080:80"
     depends_on:
       weather_db:
