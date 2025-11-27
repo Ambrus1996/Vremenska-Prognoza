@@ -30,8 +30,7 @@ services:
     restart: always
     
     # [IMPORTANT] Ports section REMOVED.
-    # This container is no longer exposed directly to the internet.
-    # It talks only to Nginx via the internal Docker network.
+    # The app is hidden and accessible only via Nginx through the internal Docker network.
     
     # Load environment variables
     env_file:
@@ -48,11 +47,11 @@ services:
     container_name: weather_db
     restart: always
     environment:
-      # Ideally, these should also use ${VARIABLES} from .env in the future
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: weather
-      MYSQL_USER: weather_user
-      MYSQL_PASSWORD: weather_pass
+      # [SECURE] Credentials loaded from .env file (Mentor requirement)
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -61,7 +60,8 @@ services:
       # Initialize schema on the very first run
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "weather_user", "-pweather_pass"]
+      # [SECURE] Use variables for healthcheck too
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -74,7 +74,8 @@ services:
     environment:
       PMA_HOST: weather_db
       PMA_USER: root
-      PMA_PASSWORD: root
+      # [SECURE] Use the variable for root password
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
       # Exposed on port 8080 for database management
       - "8080:80"
