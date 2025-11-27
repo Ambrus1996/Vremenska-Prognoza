@@ -160,9 +160,16 @@ jobs:
             --parameters 'commands=[
               "cd /home/ec2-user/vremenska-prognoza/Vremenska-Prognoza",
               "echo \"--- [${{ github.sha }}] Starting Deployment ---\"",
-              "git pull origin main",
+              
+              "echo \"--- Resetting local changes ---\"",
+              "git fetch origin main",
+              # [IMPORTANT] Hard reset forces the server to match GitHub, fixing conflict errors
+              "git reset --hard origin/main",
+              
               "sudo docker-compose pull",
-              "sudo docker-compose up -d",
+              # [IMPORTANT] Force recreate ensures containers pick up new config/ports
+              "sudo docker-compose up -d --force-recreate",
+              
               "echo \"--- Deployment Finished ---\""
             ]' \
             --output text \
