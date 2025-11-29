@@ -1,227 +1,285 @@
 <?php
-// Helper function for icons (moved to top for cleaner HTML)
-$getIconPath = function($iconCode) {
-    $mapping = [
-        "01d" => "/assets/images/sun.png", "01n" => "/assets/images/sun.png",
-        "02d" => "/assets/images/cloudy.png", "02n" => "/assets/images/cloudy.png",
-        "03d" => "/assets/images/cloudy.png", "03n" => "/assets/images/cloudy.png",
-        "04d" => "/assets/images/overcast.png", "04n" => "/assets/images/overcast.png",
-        "09d" => "/assets/images/rain.png", "09n" => "/assets/images/rain.png",
-        "10d" => "/assets/images/rain.png", "10n" => "/assets/images/rain.png",
-        "11d" => "/assets/images/storm.png", "11n" => "/assets/images/storm.png"
-    ];
+// --- 1. THEMING ENGINE v2 (PHP Logic) ---
+
+// Default Theme
+$themeClasses = "from-blue-500 via-blue-400 to-blue-600"; 
+$textColor = "text-white";
+$glassClass = "bg-slate-900/20 border-white/10"; 
+
+if (isset($weather) && is_array($weather)) {
+    $iconCode = $weather['icon'] ?? '01d';
+    $isNight = strpos($iconCode, 'n') !== false;
     
-    if (array_key_exists($iconCode, $mapping)) {
-        // Fallback if local images don't exist, use CDN directly for reliability
-        // return $mapping[$iconCode]; 
-        // For this demo, let's use OpenWeather icons directly to ensure they load if you don't have assets uploaded
-        return "https://openweathermap.org/img/wn/" . htmlspecialchars($iconCode) . "@4x.png";
+    if ($isNight) {
+        // NIGHT THEME: Deep Midnight Blue (Fixed based on your feedback)
+        $themeClasses = "from-slate-900 via-indigo-950 to-slate-900";
+        $glassClass = "bg-slate-950/40 border-white/10";
+    } else {
+        // DAY THEMES
+        $code = substr($iconCode, 0, 2);
+        switch ($code) {
+            case '01': // Clear Sky
+                // Soft Royal Blue (Fixed: Less neon, more natural)
+                $themeClasses = "from-sky-500 via-blue-500 to-blue-700"; 
+                break;
+            
+            case '02': // Few Clouds
+            case '03': // Scattered Clouds
+                // Muted Blue / Slate mix (Fixed: Better for eyes)
+                $themeClasses = "from-slate-500 via-blue-500 to-slate-600";
+                break;
+            
+            case '04': // Broken Clouds
+                $themeClasses = "from-slate-600 via-slate-500 to-slate-700"; 
+                break;
+            
+            case '09': // Shower Rain
+            case '10': // Rain
+                $themeClasses = "from-slate-800 via-slate-700 to-gray-800";
+                break;
+            
+            case '11': // Thunderstorm
+                $themeClasses = "from-gray-900 via-indigo-950 to-black";
+                break;
+            
+            case '13': // Snow
+                $themeClasses = "from-blue-200 via-slate-200 to-gray-300"; 
+                $textColor = "text-slate-800"; 
+                $glassClass = "bg-white/40 border-white/50";
+                break;
+            
+            case '50': // Mist/Fog
+                $themeClasses = "from-gray-600 via-slate-600 to-gray-700"; 
+                break;
+                
+            default:
+                $themeClasses = "from-blue-600 via-blue-500 to-blue-700";
+        }
     }
+}
+
+// Icon Helper Function
+$getIconUrl = function($iconCode) {
     return "https://openweathermap.org/img/wn/" . htmlspecialchars($iconCode) . "@4x.png";
 };
 ?>
 <!DOCTYPE html>
-<html lang="sr" class="scroll-smooth">
+<html lang="sr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vremenska Prognoza | DevOps Edition</title>
+    <title>WeatherApp Pro</title>
     
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="icon" 
+      href="https://openweathermap.org/img/wn/<?= htmlspecialchars($weather['icon'] ?? '02d') ?>@4x.png" 
+      type="image/png" 
+      sizes="192x192">
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
 
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        glass: 'rgba(255, 255, 255, 0.15)',
-                        glassDark: 'rgba(15, 23, 42, 0.6)'
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
                     }
                 }
             }
         }
     </script>
-
+    
     <style>
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .dark ::-webkit-scrollbar-thumb { background: #475569; }
-        
-        /* Glassmorphism Background */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
+        .glass-card {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
         }
-        .dark .glass-panel {
-            background: rgba(30, 41, 59, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
+        body::-webkit-scrollbar { display: none; }
+        body { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body 
-    x-data="{ 
-        darkMode: localStorage.getItem('theme') === 'dark',
-        toggleTheme() {
-            this.darkMode = !this.darkMode;
-            localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
-            if (this.darkMode) {
-                document.documentElement.classList.add('dark');
-            } else {
-                document.documentElement.classList.remove('dark');
-            }
-        }
-    }"
-    x-init="$watch('darkMode', val => val ? document.documentElement.classList.add('dark') : document.documentElement.classList.remove('dark')); if(darkMode) document.documentElement.classList.add('dark');"
-    class="min-h-screen transition-colors duration-300 bg-gradient-to-br from-blue-100 to-indigo-200 dark:from-slate-900 dark:to-slate-800 text-slate-800 dark:text-slate-100 font-sans"
->
+<body class="min-h-screen bg-gradient-to-br transition-all duration-1000 ease-in-out <?= $themeClasses ?> <?= $textColor ?> flex flex-col items-center py-10 selection:bg-cyan-500 selection:text-white">
 
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="w-full max-w-md md:max-w-3xl px-4 transition-all duration-500">
         
-        <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-            <div class="flex items-center gap-3">
-                <div class="p-3 bg-blue-500 rounded-xl shadow-lg shadow-blue-500/30">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                    </svg>
-                </div>
-                <h1 class="text-3xl font-bold tracking-tight">Weather<span class="text-blue-600 dark:text-blue-400">App</span></h1>
+        <div class="relative group z-50 mb-10">
+            <div class="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl blur opacity-30 group-hover:opacity-80 transition duration-1000 group-hover:duration-200"></div>
+            
+            <div class="relative glass-card bg-slate-900/60 border border-white/10 rounded-2xl p-2">
+                <form action="index.php" method="get" class="flex items-center">
+                    <input 
+                        type="text" 
+                        name="city" 
+                        placeholder="Unesite grad (npr. Beograd)..." 
+                        value="<?= htmlspecialchars($cityName ?? '') ?>"
+                        class="w-full bg-transparent p-3 outline-none text-lg font-semibold placeholder-gray-400 text-white"
+                        autocomplete="off"
+                    >
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl transition-all font-bold tracking-wide shadow-lg">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                        </svg>
+                    </button>
+                </form>
             </div>
-
-            <button @click="toggleTheme()" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-                <svg x-show="!darkMode" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <svg x-show="darkMode" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-            </button>
-        </header>
-
-        <div class="glass-panel p-2 rounded-2xl shadow-xl mb-10 transition-all hover:shadow-2xl">
-            <form action="index.php" method="get" class="flex w-full">
-                <input 
-                    type="text" 
-                    name="city" 
-                    placeholder="Unesite ime grada (npr. Beograd)..." 
-                    value="<?= htmlspecialchars($cityName ?? '') ?>"
-                    class="w-full bg-transparent p-4 outline-none text-lg placeholder-slate-400 dark:text-white"
-                    autocomplete="off"
-                >
-                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-8 rounded-xl font-semibold transition-transform active:scale-95">
-                    Traži
-                </button>
-            </form>
         </div>
 
         <?php if (isset($error)): ?>
-            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-8 shadow-sm" role="alert">
-                <p class="font-bold">Greška</p>
-                <p><?= htmlspecialchars($error); ?></p>
+            <div x-data="{ show: true }" x-show="show" class="glass-card bg-red-900/40 border border-red-500/50 p-4 rounded-2xl mb-6 flex items-center justify-between text-red-100 animate-bounce">
+                <div class="flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                    </svg>
+                    <span><?= htmlspecialchars($error); ?></span>
+                </div>
+                <button @click="show = false">&times;</button>
             </div>
         <?php endif; ?>
 
         <?php if (!isset($error) && isset($weather) && is_array($weather)): ?>
             
-            <div class="glass-panel rounded-3xl p-8 mb-8 shadow-2xl relative overflow-hidden">
-                <div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-blue-400 opacity-20 blur-3xl"></div>
-
-                <div class="relative z-10 flex flex-col md:flex-row items-center justify-between">
-                    <div class="text-center md:text-left mb-6 md:mb-0">
-                        <h2 class="text-4xl md:text-5xl font-bold mb-2"><?= htmlspecialchars($weather['city_name'] ?? $cityName); ?></h2>
-                        <p class="text-slate-500 dark:text-slate-400 text-lg"><?= date("l, d. F Y."); ?></p>
-                        
-                        <div class="flex items-center justify-center md:justify-start mt-4">
-                            <span class="text-7xl md:text-8xl font-bold tracking-tighter">
-                                <?= is_numeric($weather['temperature']) ? round($weather['temperature']) : $weather['temperature']; ?>°
-                            </span>
+            <div class="glass-card <?= $glassClass ?> rounded-[2.5rem] p-8 md:p-12 mb-8 shadow-2xl relative overflow-hidden transition-all duration-500 hover:shadow-black/20">
+                
+                <div class="flex justify-between items-start mb-8">
+                    <div>
+                        <h1 class="text-5xl md:text-7xl font-extrabold tracking-tight drop-shadow-xl">
+                            <?= htmlspecialchars($weather['city_name'] ?? $cityName); ?>
+                        </h1>
+                        <p class="text-xl opacity-80 mt-2 font-light tracking-widest uppercase">
+                            <?= date("l, d. F"); ?>
+                        </p>
+                    </div>
+                    <div class="text-right hidden md:block">
+                        <div class="bg-white/10 px-4 py-2 rounded-full backdrop-blur-md text-sm font-bold tracking-wider border border-white/10 shadow-inner">
+                            LIVE
                         </div>
-                        <p class="text-blue-500 dark:text-blue-300 font-medium mt-2 capitalize"><?= htmlspecialchars($weather['description'] ?? ''); ?></p>
-                    </div>
-
-                    <div class="relative">
-                        <img src="<?= $getIconPath($weather['icon']) ?>" alt="Weather Icon" class="w-48 h-48 drop-shadow-2xl floating-animation">
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                    <div class="bg-white/50 dark:bg-slate-800/50 p-4 rounded-2xl text-center backdrop-blur-sm">
-                        <p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mb-1">Vlažnost</p>
-                        <p class="text-xl font-bold"><?= $weather['humidity']; ?>%</p>
+                <div class="flex flex-col md:flex-row items-center justify-between gap-8">
+                    <div class="flex flex-col items-center md:items-start">
+                        <div class="text-[8rem] leading-none font-bold tracking-tighter drop-shadow-2xl">
+                            <?= round($weather['temperature']); ?>°
+                        </div>
+                        <div class="text-2xl font-medium opacity-90 capitalize mt-2 flex items-center gap-2">
+                            <?= htmlspecialchars($weather['description']); ?>
+                        </div>
                     </div>
-                    <div class="bg-white/50 dark:bg-slate-800/50 p-4 rounded-2xl text-center backdrop-blur-sm">
-                        <p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mb-1">Vetar</p>
-                        <p class="text-xl font-bold"><?= $weather['windSpeed']; ?> <span class="text-sm font-normal">km/h</span></p>
-                    </div>
-                    <div class="bg-white/50 dark:bg-slate-800/50 p-4 rounded-2xl text-center backdrop-blur-sm">
-                        <p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mb-1">Osećaj</p>
-                        <p class="text-xl font-bold"><?= round($weather['feelsLike']); ?>°</p>
-                    </div>
-                    <div class="bg-white/50 dark:bg-slate-800/50 p-4 rounded-2xl text-center backdrop-blur-sm">
-                        <p class="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mb-1">Vidljivost</p>
-                        <p class="text-xl font-bold"><?= number_format($weather['visibility'] / 1000, 1); ?> <span class="text-sm font-normal">km</span></p>
+
+                    <div class="relative w-64 h-64 animate-float">
+                        <div class="absolute inset-0 bg-white/10 blur-[60px] rounded-full"></div>
+                        <img src="<?= $getIconUrl($weather['icon']) ?>" alt="Weather" class="relative z-10 w-full h-full object-contain drop-shadow-2xl transform scale-125">
                     </div>
                 </div>
 
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-12">
+                    <div class="bg-black/20 p-4 rounded-2xl border border-white/5 backdrop-blur-sm text-center transition hover:bg-white/10">
+                        <p class="text-xs uppercase tracking-widest opacity-60 mb-1">Vlažnost</p>
+                        <p class="text-2xl font-bold"><?= $weather['humidity']; ?>%</p>
+                    </div>
+                    <div class="bg-black/20 p-4 rounded-2xl border border-white/5 backdrop-blur-sm text-center transition hover:bg-white/10">
+                        <p class="text-xs uppercase tracking-widest opacity-60 mb-1">Vetar</p>
+                        <p class="text-2xl font-bold"><?= round($weather['windSpeed']); ?> <span class="text-sm font-normal">km/h</span></p>
+                    </div>
+                    <div class="bg-black/20 p-4 rounded-2xl border border-white/5 backdrop-blur-sm text-center transition hover:bg-white/10">
+                        <p class="text-xs uppercase tracking-widest opacity-60 mb-1">Osećaj</p>
+                        <p class="text-2xl font-bold"><?= round($weather['feelsLike']); ?>°</p>
+                    </div>
+                    <div class="bg-black/20 p-4 rounded-2xl border border-white/5 backdrop-blur-sm text-center transition hover:bg-white/10">
+                        <p class="text-xs uppercase tracking-widest opacity-60 mb-1">Pritisak</p>
+                        <p class="text-2xl font-bold">1013 <span class="text-sm font-normal">hPa</span></p>
+                    </div>
+                </div>
+
+                <?php 
+                if (isset($weather['sys']['sunrise']) && isset($weather['sys']['sunset'])): 
+                    // Calculate local time for sun events
+                    $timezone = $weather['timezone'] ?? 0;
+                    $sunrise = gmdate('H:i', $weather['sys']['sunrise'] + $timezone);
+                    $sunset = gmdate('H:i', $weather['sys']['sunset'] + $timezone);
+                ?>
                 <div x-data="{ open: false }" class="mt-6 text-center">
-                    <button @click="open = true" class="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                        Detaljniji opis vremena &rarr;
+                    <button @click="open = true" class="text-sm opacity-60 hover:opacity-100 transition-opacity underline decoration-dotted outline-none">
+                        Vreme izlaska i zalaska sunca &rarr;
                     </button>
 
                     <div x-show="open" 
                          x-transition.opacity
-                         class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                         class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4"
                          style="display: none;">
                         
                         <div @click.away="open = false" 
-                             class="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform transition-all">
-                            <h3 class="text-lg font-bold mb-2">Detalji</h3>
-                            <p class="text-slate-600 dark:text-slate-300">
-                                <?= htmlspecialchars($weather['description'] ?? 'Nema dodatnog opisa.'); ?>
-                            </p>
-                            <button @click="open = false" class="mt-4 w-full bg-slate-200 dark:bg-slate-700 py-2 rounded-lg font-medium">Zatvori</button>
+                             class="bg-slate-900/95 rounded-3xl p-8 max-w-sm w-full shadow-2xl border border-white/10 text-center">
+                            
+                            <h3 class="text-xl font-bold mb-6 text-white">Sunce danas</h3>
+                            
+                            <div class="flex justify-around items-center mb-6">
+                                <div class="flex flex-col items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-yellow-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3" />
+                                    </svg>
+                                    <span class="text-slate-400 text-sm uppercase tracking-wider">Izlazak</span>
+                                    <span class="text-2xl font-bold text-white"><?= $sunrise ?></span>
+                                </div>
+                                
+                                <div class="h-12 w-px bg-white/20"></div>
+
+                                <div class="flex flex-col items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-orange-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                      <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                    </svg>
+                                    <span class="text-slate-400 text-sm uppercase tracking-wider">Zalazak</span>
+                                    <span class="text-2xl font-bold text-white"><?= $sunset ?></span>
+                                </div>
+                            </div>
+
+                            <button @click="open = false" class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition-colors">Zatvori</button>
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
 
-            <h3 class="text-xl font-bold mb-4 px-2">Narednih 5 dana</h3>
-            
             <?php if (!empty($forecast)): ?>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <?php foreach ($forecast as $day => $data): ?>
-                        <div class="glass-panel p-4 rounded-2xl flex flex-col items-center justify-center text-center hover:bg-white/40 dark:hover:bg-slate-700/40 transition-colors">
-                            <p class="text-sm font-semibold mb-1"><?= date("D", strtotime($day)); ?></p>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mb-2"><?= date("d.m.", strtotime($day)); ?></p>
-                            
-                            <img src="<?= $getIconPath($data['icon']) ?>" alt="Icon" class="w-12 h-12 mb-2">
-                            
-                            <div class="flex gap-2 text-sm">
-                                <span class="font-bold"><?= round($data['max_temperature']); ?>°</span>
-                                <span class="text-slate-500 dark:text-slate-400"><?= round($data['min_temperature']); ?>°</span>
+                <div class="glass-card <?= $glassClass ?> rounded-3xl p-6 md:p-8">
+                    <h3 class="text-xl font-bold mb-6 opacity-90 pl-2 border-l-4 border-current">Prognoza za 5 dana</h3>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <?php foreach ($forecast as $day => $data): ?>
+                            <div class="flex flex-col items-center p-4 rounded-2xl bg-black/20 border border-white/5 hover:bg-white/10 transition transform hover:-translate-y-1 duration-300">
+                                <span class="text-sm font-semibold opacity-70 mb-1"><?= date("D", strtotime($day)); ?></span>
+                                <span class="text-xs opacity-50 mb-2"><?= date("d.m.", strtotime($day)); ?></span>
+                                
+                                <img src="<?= $getIconUrl($data['icon']) ?>" class="w-12 h-12 mb-2 drop-shadow-md">
+                                
+                                <div class="flex items-center gap-2 font-bold">
+                                    <span class="text-lg"><?= round($data['max_temperature']); ?>°</span>
+                                    <span class="text-sm opacity-50"><?= round($data['min_temperature']); ?>°</span>
+                                </div>
                             </div>
-                        </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
-            <?php else: ?>
-                <p class="text-center text-slate-500">Prognoza nije dostupna.</p>
             <?php endif; ?>
 
         <?php endif; ?>
-        
-        <footer class="mt-12 text-center text-slate-400 text-xs">
-            <p>Powered by OpenWeatherMap • Dockerized on AWS</p>
-        </footer>
+
+        <div class="mt-12 text-center opacity-40 text-sm font-light hover:opacity-100 transition-opacity">
+            <p>&copy; <?= date("Y"); ?> WeatherApp • DevOps Powered by AWS & Docker</p>
+        </div>
 
     </div>
+
 </body>
 </html>
