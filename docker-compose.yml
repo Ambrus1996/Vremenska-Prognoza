@@ -33,8 +33,11 @@ services:
     # The app is hidden and accessible only via Nginx through the internal Docker network.
     
     # Load environment variables
-    env_file:
-      - .env
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
       
     # Wait for Database to be healthy before starting
     depends_on:
