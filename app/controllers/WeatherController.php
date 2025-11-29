@@ -3,8 +3,10 @@
 namespace App\Controllers;
 
 use App\Models\City;
+use App\Models\SearchLogger;
 
 require_once __DIR__ . '/../models/City.php';
+require_once __DIR__ . '/../models/SearchLogger.php';
 
 class WeatherController
 {
@@ -25,6 +27,7 @@ class WeatherController
         $error = null;
 
         try {
+
             $weather  = $this->weatherAPI->getWeatherByCityName($cityName);
             $forecast = $this->weatherAPI->get5DayForecastByCityName($cityName);
 
@@ -36,6 +39,13 @@ class WeatherController
             if (!$cityModel->findByName($cityName)) {
                 $cityModel->create($cityName, $weather['country']);
             }
+
+            $logger = new SearchLogger();
+            $logger->logSearch(
+                $weather['city_name'],
+                round($weather['temperature']), 
+                $weather['description']
+            );
 
         } catch (\Exception $e) {
             $error = $e->getMessage();
