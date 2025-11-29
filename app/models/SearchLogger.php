@@ -7,22 +7,23 @@ use PDOException;
 
 class SearchLogger
 {
-    private $pdo;
+    private $pdo = null;
 
-   public function __construct()
+    public function __construct()
     {
-        // Hardkoduj host za test (da budemo sigurni)
-        // U docker-compose.local.yml servis se zove 'weather_db'
-        $host = 'weather_db'; 
+        $host = 'weather_db';
         
-        $db   = getenv('MYSQL_DATABASE');
-        $user = getenv('MYSQL_USER');
-        $pass = getenv('MYSQL_PASSWORD');
+        // Pametno trazenje varijabli
+        $db   = $_ENV['MYSQL_DATABASE'] ?? getenv('MYSQL_DATABASE') ?? $_SERVER['MYSQL_DATABASE'] ?? null;
+        $user = $_ENV['MYSQL_USER']     ?? getenv('MYSQL_USER')     ?? $_SERVER['MYSQL_USER']     ?? null;
+        $pass = $_ENV['MYSQL_PASSWORD'] ?? getenv('MYSQL_PASSWORD') ?? $_SERVER['MYSQL_PASSWORD'] ?? null;
+        
         $charset = 'utf8mb4';
 
-        // DEBUG: Provera da li uopste cita varijable?
         if (!$db || !$user) {
-            die("❌ GRESKA: PHP ne vidi .env varijable! Proveri docker-compose i .env fajl.");
+            // Tiho zapisi gresku u log, ne rusi sajt!
+            error_log("SearchLogger Error: Database credentials missing.");
+            return;
         }
 
         $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
@@ -36,8 +37,7 @@ class SearchLogger
         try {
             $this->pdo = new PDO($dsn, $user, $pass, $options);
         } catch (PDOException $e) {
-            // OVO JE PROMENA: Umesto error_log, ispisujemo na ekran!
-            die("❌ GRESKA SA BAZOM: " . $e->getMessage());
+            error_log("SearchLogger Connection Failed: " . $e->getMessage());
         }
     }
 
@@ -53,7 +53,7 @@ class SearchLogger
             $stmt = $this->pdo->prepare($sql);
             $stmt->execute([$cityName, $temp, $description, $clientIp]);
         } catch (PDOException $e) {
-            error_log("Failed to log search: " . $e->getMessage());
+            error_log("SearchLogger Insert Failed: " . $e->getMessage());
         }
     }
 }
