@@ -11,13 +11,12 @@ class SearchLogger
 
     public function __construct()
     {
-        $host = 'weather_db';
-        
-       
         $db   = $_ENV['MYSQL_DATABASE'] ?? getenv('MYSQL_DATABASE') ?? $_ENV['DB_NAME'] ?? getenv('DB_NAME') ?? 'weather';
         $user = $_ENV['MYSQL_USER']     ?? getenv('MYSQL_USER')     ?? $_ENV['DB_USER'] ?? getenv('DB_USER') ?? null;
         $pass = $_ENV['MYSQL_PASSWORD'] ?? getenv('MYSQL_PASSWORD') ?? $_ENV['DB_PASS'] ?? getenv('DB_PASS') ?? null;
+        
         $host = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?? 'weather_db';
+        $port = '3306';
         $charset = 'utf8mb4';
 
         if (!$db || !$user) {
@@ -25,7 +24,7 @@ class SearchLogger
             return;
         }
 
-        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+        $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
         
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
