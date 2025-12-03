@@ -13,15 +13,14 @@ class SearchLogger
     {
         $host = 'weather_db';
         
-        // Pametno trazenje varijabli
-        $db   = $_ENV['MYSQL_DATABASE'] ?? getenv('MYSQL_DATABASE') ?? $_SERVER['MYSQL_DATABASE'] ?? null;
-        $user = $_ENV['MYSQL_USER']     ?? getenv('MYSQL_USER')     ?? $_SERVER['MYSQL_USER']     ?? null;
-        $pass = $_ENV['MYSQL_PASSWORD'] ?? getenv('MYSQL_PASSWORD') ?? $_SERVER['MYSQL_PASSWORD'] ?? null;
-        
+       
+        $db   = $_ENV['MYSQL_DATABASE'] ?? getenv('MYSQL_DATABASE') ?? $_ENV['DB_NAME'] ?? getenv('DB_NAME') ?? 'weather';
+        $user = $_ENV['MYSQL_USER']     ?? getenv('MYSQL_USER')     ?? $_ENV['DB_USER'] ?? getenv('DB_USER') ?? null;
+        $pass = $_ENV['MYSQL_PASSWORD'] ?? getenv('MYSQL_PASSWORD') ?? $_ENV['DB_PASS'] ?? getenv('DB_PASS') ?? null;
+        $host = $_ENV['DB_HOST'] ?? getenv('DB_HOST') ?? 'weather_db';
         $charset = 'utf8mb4';
 
         if (!$db || !$user) {
-            // Tiho zapisi gresku u log, ne rusi sajt!
             error_log("SearchLogger Error: Database credentials missing.");
             return;
         }
