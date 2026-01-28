@@ -18,7 +18,7 @@ services:
       # Mount the LetsEncrypt certificates from the host machine
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
-      weather_app
+     - weather_app
 
   # --- APP (The Chef / PHP Application) ---
   weather_app:
