@@ -1,0 +1,19 @@
+# 1. Uzimamo laganu verziju Pythona
+FROM python:3.9-slim
+
+# 2. Postavljamo radni folder
+WORKDIR /app
+
+# 3. Kopiramo spisak biblioteka u kontejner
+COPY requirements.txt .
+
+# 4. INSTALIRAMO IH AUTOMATSKI (Ovo je ključ!)
+# --no-cache-dir znači da ne čuva smeće od instalacije (štedi prostor)
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 5. Kopiramo našu skriptu unutra
+COPY analytics.py .
+
+# 6. Komanda koja drži kontejner upaljenim (da možeš da uđeš i testiraš)
+# Kasnije ćemo ovo promeniti da se skripta vrti automatski
+CMD ["tail", "-f", "/dev/null"]
