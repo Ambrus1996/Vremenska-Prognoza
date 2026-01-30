@@ -153,7 +153,7 @@ jobs:
 
       - name: Deploy via SSM
         run: |
-          # [FIX] Using GitHub Secret for Instance ID to hide infrastructure details
+          # [UPDATE] Using the Safe Build command for Amazon Linux
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.AWS_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
@@ -162,9 +162,11 @@ jobs:
               "echo \"--- [${{ github.sha }}] Starting Deployment ---\"",
               "git fetch origin main",
               "git reset --hard origin/main",
-              "sudo docker-compose pull",
-              "sudo docker-compose up -d --force-recreate",
-              "echo \"--- Deployment Finished ---\""
+              "echo \"--- Stopping old containers --- 🛑\"",
+              "sudo docker-compose down",
+              "echo \"--- Building and Starting new containers (Safe Mode) --- 🚀\"",
+              "sudo COMPOSE_DOCKER_CLI_BUILD=0 DOCKER_BUILDKIT=0 docker-compose --env-file .env up -d --build",
+              "echo \"--- Deployment Finished Successfully ---\""
             ]' \
             --output text \
             --query 'Command.CommandId')
