@@ -1,23 +1,23 @@
-# 1. Use a lightweight Python version
+# Use lightweight Python version
 FROM python:3.9-slim
 
-# 2. Set the working directory
 WORKDIR /app
 
-# [SECURITY FIX] Update packages to patch OpenSSL CVE-2025-15467
-# Trivy requires this update to clear the Critical vulnerability
-RUN apt-get update && apt-get upgrade -y && apt-get clean
+# [SECURITY FIX] Force update of OpenSSL and system libraries to patch CVE-2025-15467
+# We explicitly install libssl3 to ensure the cache is broken and the patch is applied
+RUN apt-get update && \
+    apt-get install -y --only-upgrade openssl libssl3 && \
+    apt-get upgrade -y && \
+    apt-get clean
 
-# 3. Copy the list of requirements into the container
+# Copy requirements file
 COPY requirements.txt .
 
-# 4. Install dependencies automatically
-# --no-cache-dir means it won't save installation cache (saves space)
+# Install dependencies automatically without cache to save space
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Copy our script inside
+# Copy the analytics script
 COPY analytics.py .
 
-# 6. Command to keep the container running (so you can enter and test)
-# Later we will change this to run the script automatically
+# Keep container running (managed by docker-compose)
 CMD ["tail", "-f", "/dev/null"]

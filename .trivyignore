@@ -1,0 +1,14 @@
+# Kernel headers (Provided by AWS Host, cannot be fixed in container)
+linux-libc-dev
+
+# Apache HTTP Server non-critical issues (Waiting for Debian upstream patch)
+apache2
+apache2-bin
+apache2-data
+apache2-utils
+
+# PAM modules (Linux authentication - not exposed in our web app context)
+libpam-modules
+libpam-modules-bin
+libpam-runtime
+libpam0g
