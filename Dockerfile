@@ -1,5 +1,5 @@
 # --- Stage 1: Composer Dependency Builder ---
-# [CHANGED] Use exact version 2.8.1 instead of just "2"
+# Using specific Composer version for stability
 FROM composer:2.8.1 as vendor
 
 WORKDIR /app
@@ -8,21 +8,24 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader
 
 # --- Stage 2: Production Image (PHP + Apache) ---
-# [CHANGED] Use exact version 8.2.25-apache instead of "8.2-apache"
+# Using specific PHP version
 FROM php:8.2.25-apache
 
-# [SECURITY FIX] Update Linux packages to patch OpenSSL CVE-2025-15467
-# This is CRITICAL for passing Trivy security scan
-RUN apt-get update && apt-get upgrade -y && apt-get clean
+# [SECURITY FIX] Force update of OpenSSL and system libraries to patch CVE-2025-15467
+# We explicitly install libssl3 to ensure the cache is broken and the patch is applied
+RUN apt-get update && \
+    apt-get install -y --only-upgrade openssl libssl3 && \
+    apt-get upgrade -y && \
+    apt-get clean
 
 # Install required PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql
 
 WORKDIR /var/www/html
 
-# Enable Apache's mod_rewrite for nice URLs (e.g., /city/London)
+# Enable Apache's mod_rewrite for nice URLs
 RUN a2enmod rewrite
-# Set Apache's document root to the /public directory, which is more secure
+# Set Apache's document root to /public
 RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
 # Copy vendor folder from the 'vendor' stage WITH the correct owner
