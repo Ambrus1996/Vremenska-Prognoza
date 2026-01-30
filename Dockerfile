@@ -1,5 +1,5 @@
 # --- Stage 1: Composer Dependency Builder ---
-# [CHANGED] Koristimo tacnu verziju 2.8.1 umesto samo "2"
+# [CHANGED] Use exact version 2.8.1 instead of just "2"
 FROM composer:2.8.1 as vendor
 
 WORKDIR /app
@@ -8,10 +8,11 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --optimize-autoloader
 
 # --- Stage 2: Production Image (PHP + Apache) ---
-# [CHANGED] Koristimo tacnu verziju 8.2.25-apache umesto "8.2-apache"
+# [CHANGED] Use exact version 8.2.25-apache instead of "8.2-apache"
 FROM php:8.2.25-apache
 
-# [PRO FIX] Update Linux packages to fix known CVEs
+# [SECURITY FIX] Update Linux packages to patch OpenSSL CVE-2025-15467
+# This is CRITICAL for passing Trivy security scan
 RUN apt-get update && apt-get upgrade -y && apt-get clean
 
 # Install required PHP extensions
