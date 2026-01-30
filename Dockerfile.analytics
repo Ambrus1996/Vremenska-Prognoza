@@ -1,19 +1,23 @@
-# 1. Uzimamo laganu verziju Pythona
+# 1. Use a lightweight Python version
 FROM python:3.9-slim
 
-# 2. Postavljamo radni folder
+# 2. Set the working directory
 WORKDIR /app
 
-# 3. Kopiramo spisak biblioteka u kontejner
+# [SECURITY FIX] Update packages to patch OpenSSL CVE-2025-15467
+# Trivy requires this update to clear the Critical vulnerability
+RUN apt-get update && apt-get upgrade -y && apt-get clean
+
+# 3. Copy the list of requirements into the container
 COPY requirements.txt .
 
-# 4. INSTALIRAMO IH AUTOMATSKI (Ovo je ključ!)
-# --no-cache-dir znači da ne čuva smeće od instalacije (štedi prostor)
+# 4. Install dependencies automatically
+# --no-cache-dir means it won't save installation cache (saves space)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 5. Kopiramo našu skriptu unutra
+# 5. Copy our script inside
 COPY analytics.py .
 
-# 6. Komanda koja drži kontejner upaljenim (da možeš da uđeš i testiraš)
-# Kasnije ćemo ovo promeniti da se skripta vrti automatski
+# 6. Command to keep the container running (so you can enter and test)
+# Later we will change this to run the script automatically
 CMD ["tail", "-f", "/dev/null"]
