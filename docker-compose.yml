@@ -99,7 +99,7 @@ services:
       weather_db:
         condition: service_healthy
     # Keep container running for now
-    command: tail -f /dev/null
+   # command: tail -f /dev/null
 
 volumes:
   db_data:
