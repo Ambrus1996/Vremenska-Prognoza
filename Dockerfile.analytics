@@ -4,7 +4,6 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # [SECURITY FIX] Force update of OpenSSL and system libraries to patch CVE-2025-15467
-# We explicitly install libssl3 to ensure the cache is broken and the patch is applied
 RUN apt-get update && \
     apt-get install -y --only-upgrade openssl libssl3 && \
     apt-get upgrade -y && \
@@ -13,11 +12,11 @@ RUN apt-get update && \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install dependencies automatically without cache to save space
+# Install dependencies automatically without cache
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the analytics script
 COPY analytics.py .
 
-# Keep container running (managed by docker-compose)
-CMD ["tail", "-f", "/dev/null"]
+# [CHANGED] Run the script directly (with unbuffered output)
+CMD ["python", "-u", "analytics.py"]

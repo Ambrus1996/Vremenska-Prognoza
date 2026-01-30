@@ -1,8 +1,10 @@
 import mysql.connector
 import os
-import requests  # <--- OVO JE NOVO: Biblioteka koja "zove" internet
+import requests
+import time
+from datetime import datetime
 
-# 1. KONFIGURACIJA
+# 1. CONFIGURATION
 db_config = {
     'user': os.environ.get('DB_USER'),
     'password': os.environ.get('DB_PASSWORD'),
@@ -10,79 +12,93 @@ db_config = {
     'database': os.environ.get('DB_NAME')
 }
 
-# --- NOVA FUNKCIJA ZA GEOLOCIRANJE ---
+REFRESH_INTERVAL = 60  # Seconds to wait between reports
+
+# --- GEO-LOCATION FUNCTION ---
 def get_location(ip_address):
     """
-    Prima IP adresu (npr. '8.8.8.8') i vraća lokaciju (npr. 'USA, Virginia').
+    Takes an IP address (e.g., '8.8.8.8') and returns location (e.g., 'USA, Virginia').
     """
-    # Provera: Da li je ovo lokalna/docker IP adresa?
-    # Privatne IP adrese (127..., 172..., 192...) nemaju lokaciju na internetu.
+    # Check: Is this a local/docker IP?
     if ip_address.startswith('127.') or ip_address.startswith('172.') or ip_address == '::1':
         return "🏠 Local / Docker Internal"
 
     try:
-        # OVDE SE DEŠAVA MAGIJA: Pitamo besplatan API "Ko je ovo?"
+        # MAGIC HAPPENS HERE: We ask the API "Who is this?"
         url = f"http://ip-api.com/json/{ip_address}"
-        response = requests.get(url, timeout=5) # Cekamo max 5 sekundi
-        data = response.json() # Pretvaramo odgovor u Python rečnik (dict)
+        response = requests.get(url, timeout=5)
+        data = response.json()
 
         if data['status'] == 'success':
             return f"{data['country']}, {data['city']}"
         else:
-            return "Nepoznata lokacija"
+            return "Unknown Location"
     except Exception as e:
-        return "Greska u API pozivu"
+        return "API Error"
 
-print("\n🕵️‍♂️ --- POKRETANJE NAPREDNE ANALITIKE ---")
+# --- MAIN LOOP (DAEMON MODE) ---
+print("🚀 STARTING ANALYTICS DAEMON...")
 
-try:
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor()
-    print("✅ Baza povezana.")
+while True:
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"\n\n--- 🕒 REPORT GENERATED AT: {timestamp} ---")
 
-    # --- DEO 1: TOP GRADOVI (Ono staro) ---
-    print("\n📊 TOP GRADOVI (ŠTA SE TRAŽI):")
-    print("-" * 50)
-    cursor.execute("""
-        SELECT city_name, COUNT(*) as br, AVG(temperature) as temp 
-        FROM search_history GROUP BY city_name ORDER BY br DESC LIMIT 3
-    """)
-    for row in cursor.fetchall():
-        print(f"   📍 {row[0]:<15} | {row[1]} pretraga | {round(row[2],1)}°C")
+    conn = None
+    cursor = None
 
-    # --- DEO 2: ANALIZA KORISNIKA (Ono novo - Sherlock) ---
-    print("\n🌍 TOP KORISNICI (KO PRETRAŽUJE):")
-    print("-" * 60)
-    print(f"{'IP ADRESA':<18} | {'BR.':<5} | {'LOKACIJA (GEO-IP)':<20}")
-    print("-" * 60)
+    try:
+        conn = mysql.connector.connect(**db_config)
+        cursor = conn.cursor()
+        
+        # --- PART 1: TOP CITIES ---
+        print("\n📊 TOP CITIES (WHAT PEOPLE SEARCH):")
+        print("-" * 50)
+        cursor.execute("""
+            SELECT city_name, COUNT(*) as cnt, AVG(temperature) as temp 
+            FROM search_history GROUP BY city_name ORDER BY cnt DESC LIMIT 3
+        """)
+        results = cursor.fetchall()
+        
+        if not results:
+            print("   (No searches yet)")
+        
+        for row in results:
+            print(f"   📍 {row[0]:<15} | {row[1]} searches | {round(row[2],1)}°C")
 
-    # Vadimo IP adrese koje su najvise puta pretrazivale
-    cursor.execute("""
-        SELECT client_ip, COUNT(*) as broj 
-        FROM search_history GROUP BY client_ip ORDER BY broj DESC LIMIT 5
-    """)
-    
-    users = cursor.fetchall()
+        # --- PART 2: USER ANALYSIS (Sherlock Mode) ---
+        print("\n🌍 TOP USERS (WHO IS SEARCHING):")
+        print("-" * 65)
+        print(f"{'IP ADDRESS':<18} | {'CNT':<5} | {'LOCATION (GEO-IP)':<20}")
+        print("-" * 65)
 
-    if not users:
-        print("⚠️  Nema podataka o korisnicima.")
-    else:
-        for user in users:
-            ip = user[0]    # Uzimamo IP iz baze
-            count = user[1] # Uzimamo broj pretraga
-            
-            # Pozivamo nasu funkciju da otkrije zemlju
-            lokacija = get_location(ip)
-            
-            print(f"{ip:<18} | {count:<5} | {lokacija:<20}")
+        cursor.execute("""
+            SELECT client_ip, COUNT(*) as cnt 
+            FROM search_history GROUP BY client_ip ORDER BY cnt DESC LIMIT 5
+        """)
+        
+        users = cursor.fetchall()
 
-    print("-" * 60)
+        if not users:
+            print("⚠️  No user data available.")
+        else:
+            for user in users:
+                ip = user[0]
+                count = user[1]
+                location = get_location(ip)
+                print(f"{ip:<18} | {count:<5} | {location:<20}")
 
-except mysql.connector.Error as err:
-    print(f"❌ GREŠKA BAZA: {err}")
+        print("-" * 65)
 
-finally:
-    if 'conn' in locals() and conn.is_connected():
-        cursor.close()
-        conn.close()
-        print("\n🔒 Gotovo.")
+    except mysql.connector.Error as err:
+        print(f"❌ DATABASE ERROR: {err}")
+    except Exception as e:
+        print(f"❌ GENERAL ERROR: {e}")
+
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+            # We don't print "Done" anymore, because we go to sleep now
+
+    print(f"💤 Sleeping for {REFRESH_INTERVAL} seconds...")
+    time.sleep(REFRESH_INTERVAL)
