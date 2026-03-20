@@ -1,6 +1,6 @@
 # --- Stage 1: Composer Dependency Builder ---
 # Using specific Composer version for stability
-FROM composer:2.8.1 as vendor
+FROM composer:2.8.1 AS vendor
 
 WORKDIR /app
 COPY composer.json composer.lock ./
