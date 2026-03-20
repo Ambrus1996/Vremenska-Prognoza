@@ -68,7 +68,7 @@ $getIconUrl = function($iconCode) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WeatherApp DEMO 1.0</title>
+    <title>WeatherApp DEMO</title>
     
     <link rel="icon" 
       href="https://openweathermap.org/img/wn/<?= htmlspecialchars($weather['icon'] ?? '02d') ?>@4x.png" 
