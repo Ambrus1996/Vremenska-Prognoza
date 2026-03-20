@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 1. Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 2. Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -34,14 +34,14 @@ jobs:
     needs: php_lint
     steps:
       - name: 1. Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 2. Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
       - name: 3. Cache Composer dependencies
         id: composer-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -58,7 +58,7 @@ jobs:
     needs: run_tests
     steps:
       - name: 1. Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 2. Run Local PHP Security Checker
         uses: symfonycorp/security-checker-action@v5
         with:
@@ -74,11 +74,11 @@ jobs:
       sha: ${{ steps.vars.outputs.sha }}
     steps:
       - name: 1. Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 2. Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v4
       - name: 3. Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -86,7 +86,7 @@ jobs:
         id: vars
         run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
       - name: 5. Build and Push
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
@@ -104,9 +104,9 @@ jobs:
     needs: build_and_push
     steps:
       - name: 1. Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 2. Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
