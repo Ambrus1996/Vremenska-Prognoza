@@ -2,25 +2,18 @@ name: CI/CD - Lint, Test, Build, Push, and Deploy
 
 # --- Triggers ---
 on:
-  # 1. CI runs on Pull Requests targeting 'main'
   pull_request:
     branches: [ main ]
-  
-  # 2. CI + CD runs on a push (merge) to 'main'
   push:
     branches: [ main ]
-
-  # 3. Allows manual runs from the Actions tab
   workflow_dispatch:
 
-# [FIX] Mentor Request: Restrict permissions (Principle of Least Privilege)
-# This ensures the GITHUB_TOKEN only has read access to the repo content.
 permissions:
   contents: read
 
 # --- Jobs ---
 jobs:
-  # --- JOB #1: Check Code Quality ---
+  # --- JOB #1: Check PHP Syntax ---
   php_lint:
     name: Check PHP Syntax (Lint)
     runs-on: ubuntu-latest
@@ -34,11 +27,11 @@ jobs:
       - name: 3. Run PHP Lint
         run: find . -type f -name "*.php" ! -path "./vendor/*" -print0 | xargs -0 -n 1 php -l
 
-  # --- JOB #2: Run Unit Tests (WITH CACHE) ---
+  # --- JOB #2: Run Unit Tests ---
   run_tests:
     name: Run Unit Tests (PHPUnit)
     runs-on: ubuntu-latest
-    needs: php_lint # Waits for Job #1
+    needs: php_lint
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
@@ -52,14 +45,13 @@ jobs:
         with:
           path: vendor
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-      - name: 4. Install Composer Dependencies (if cache missed)
+      - name: 4. Install Composer Dependencies
         if: steps.composer-cache.outputs.cache-hit != 'true'
         run: composer install --prefer-dist --no-progress
       - name: 5. Run PHPUnit
         run: vendor/bin/phpunit
 
-  # --- [NEW] JOB #2.5: Scan Composer Vulnerabilities ---
-  # This addresses the mentor's request to scan PHP dependencies for known CVEs
+  # --- JOB #3: Scan Dependencies ---
   security_php:
     name: Scan Composer Deps
     runs-on: ubuntu-latest
@@ -67,19 +59,17 @@ jobs:
     steps:
       - name: 1. Checkout Code
         uses: actions/checkout@v3
-      
-      # Uses the official PHP Security Checker
       - name: 2. Run Local PHP Security Checker
         uses: symfonycorp/security-checker-action@v5
         with:
           lock: ./composer.lock
 
-  # --- JOB #3: Build and Push (WITH DOCKER CACHE) ---
+  # --- JOB #4: Build and Push to Docker Hub ---
   build_and_push:
     name: Build & Push Docker Image
-    # [UPDATE] Now waits for both Unit Tests AND PHP Security Scan
     needs: [run_tests, security_php] 
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
       sha: ${{ steps.vars.outputs.sha }}
     steps:
@@ -95,7 +85,7 @@ jobs:
       - name: 4. Extract Short SHA
         id: vars
         run: echo "sha=$(echo ${GITHUB_SHA::7})" >> $GITHUB_OUTPUT
-      - name: 5. Build and Push Docker Image
+      - name: 5. Build and Push
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -107,24 +97,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # --- JOB #4: Security Scan (OS/Docker) ---
+  # --- JOB #5: Security Scan (Trivy) ---
   security_scan:
     name: Scan Image (Trivy)
     runs-on: ubuntu-latest
     needs: build_and_push
-
     steps:
-      # Must checkout code so Trivy can read the .trivyignore file
       - name: 1. Checkout Code
         uses: actions/checkout@v3
-
       - name: 2. Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
-      - name: 3. Run Trivy Vulnerability Scanner
+      - name: 3. Run Trivy Scanner
         uses: aquasecurity/trivy-action@v0.35.0
         with:
           image-ref: 'ambrus1996/weather-app:${{ needs.build_and_push.outputs.sha }}'
@@ -132,17 +118,14 @@ jobs:
           ignore-unfixed: true
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
-          # Point to your ignore file for known/accepted risks
           trivyignores: .trivyignore
 
-  # --- JOB #5: DEPLOYMENT (CD) ---
+  # --- JOB #6: DEPLOYMENT (CD) ---
   deploy:
     name: Deploy to AWS EC2
     runs-on: ubuntu-latest
     needs: security_scan 
-    # Only run deploy on push to main branch
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -153,32 +136,25 @@ jobs:
 
       - name: Deploy via SSM
         run: |
-          # [UPDATE] Using the Safe Build command for Amazon Linux
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ secrets.AWS_INSTANCE_ID }}" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
               "cd /home/ec2-user/vremenska-prognoza/Vremenska-Prognoza",
-              "echo \"--- [${{ github.sha }}] Starting Deployment ---\"",
-              "git fetch origin main",
-              "git reset --hard origin/main",
-              "echo \"--- Stopping old containers --- 🛑\"",
-              "sudo docker-compose down",
-              "echo \"--- Building and Starting new containers (Safe Mode) --- 🚀\"",
-              "sudo COMPOSE_DOCKER_CLI_BUILD=0 DOCKER_BUILDKIT=0 docker-compose --env-file .env up -d --build",
-              "echo \"--- Deployment Finished Successfully ---\""
+              "git fetch origin main && git reset --hard origin/main",
+              "echo \"--- Pulling newest images from Docker Hub --- 📥\"",
+              "sudo docker-compose pull",
+              "echo \"--- Restarting containers with new code --- 🚀\"",
+              "sudo docker-compose up -d",
+              "sudo docker image prune -f",
+              "echo \"--- Deployment Finished! ---\""
             ]' \
             --output text \
             --query 'Command.CommandId')
           
           echo "Command ID: $COMMAND_ID"
+          aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "${{ secrets.AWS_INSTANCE_ID }}"
           
-          # Wait for the command to finish
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.AWS_INSTANCE_ID }}" \
-          
-          # Retrieve output logs
           aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "${{ secrets.AWS_INSTANCE_ID }}" \
