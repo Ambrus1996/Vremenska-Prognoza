@@ -98,8 +98,55 @@ services:
     depends_on:
       weather_db:
         condition: service_healthy
-    # Keep container running for now
-   # command: tail -f /dev/null
 
+  # =========================================================
+  # --- OBSERVABILITY STACK (Monitoring & Alerting) ---
+  # =========================================================
+
+  # --- PROMETHEUS (The Metrics Scraper) ---
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: weather_prometheus
+    restart: always
+    volumes:
+      # Mount the configuration file for scraping targets
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  # --- NODE EXPORTER (Host System Metrics) ---
+  node_exporter:
+    image: prom/node-exporter:latest
+    container_name: weather_node_exporter
+    restart: always
+    # Map host directories to container for accurate hardware metrics
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+
+  # --- GRAFANA (The Visualization Dashboard) ---
+  grafana:
+    image: grafana/grafana:latest
+    container_name: weather_grafana
+    restart: always
+    volumes:
+      # Persist dashboards and configurations
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+# --- VOLUMES (Persistent Storage) ---
 volumes:
   db_data:
+  # Added persistence for Grafana
+  grafana_data:
