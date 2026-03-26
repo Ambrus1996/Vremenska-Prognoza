@@ -1,129 +1,118 @@
 <?php
-// File: app/models/WeatherAPI.php
-
 namespace App\Models;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\GuzzleException;
 
-class WeatherAPI
-{
+class WeatherAPI {
     private $client;
     private $apiKey;
 
-    public function __construct($apiKey)
-    {
+    public function __construct($apiKey) {
         $this->apiKey = $apiKey;
         $this->client = new Client([
             'base_uri' => 'https://api.openweathermap.org/data/2.5/',
-            'timeout'  => 5.0, // Set a timeout for API requests
+            'timeout'  => 5.0,
         ]);
     }
 
-    public function getWeatherByCityName($cityName)
-    {
+    public function getWeatherByCityName($cityName) {
         try {
             $response = $this->client->request('GET', 'weather', [
                 'query' => [
-                    'q' => $cityName,
-                    'appid' => $this->apiKey,
-                    'units' => 'metric',
-                ]
-            ]);
-
-            $body = $response->getBody()->getContents();
-            $weatherData = json_decode($body);
-
-            // --- [FIX - High] Validate the API payload ---
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \Exception("API returned invalid JSON response.");
-            }
-            if (!isset($weatherData->sys, $weatherData->main, $weatherData->weather[0], $weatherData->wind)) {
-                throw new \Exception("Weather data structure is incomplete for " . htmlspecialchars($cityName));
-            }
-            // --- End of Validation Fix ---
-
-            $dateTime = new \DateTime('@' . $weatherData->dt);
-            $dateTime->setTimezone(new \DateTimeZone('UTC'));
-            
-            // [FIX - Medium] Correctly handle negative (western) timezone offsets
-            $timezoneOffset = (int) ($weatherData->timezone ?? 0);
-            $dateTime->modify(sprintf('%+d seconds', $timezoneOffset));
-
-            return [
-                'country'     => $weatherData->sys->country ?? 'N/A',
-                'city_name'   => $weatherData->name ?? $cityName,
-                'temperature' => $weatherData->main->temp ?? 0,
-                'humidity'    => $weatherData->main->humidity ?? 0,
-                'local_time'  => $dateTime->format('H:i'),
-                'icon'        => $weatherData->weather[0]->icon ?? '01d',
-                'windSpeed'   => isset($weatherData->wind->speed) ? round($weatherData->wind->speed * 3.6, 2) : 'N/A',
-                'feelsLike'   => $weatherData->main->feels_like ?? 'N/A',
-                'visibility'  => isset($weatherData->visibility) ? ($weatherData->visibility / 1000) : 'N/A',
-                'uvIndex'     => 'N/A',
-                'description' => $weatherData->weather[0]->description ?? ''
-            ];
-            
-        } catch (\GuzzleHttp\Exception\ClientException $e) {
-            error_log("WeatherAPI ClientException: " . $e->getMessage());
-            return null;
-        } catch (\Exception $e) {
-            error_log("WeatherAPI Exception: " . $e->getMessage());
-            return null;
-        }
-    }
-
-    public function get5DayForecastByCityName($cityName)
-    {
-        try {
-            $response = $this->client->request('GET', 'forecast', [
-                'query' => [
-                    'q' => $cityName,
-                    'appid' => $this->apiKey,
+                    'q' => $cityName, 
+                    'appid' => $this->apiKey, 
                     'units' => 'metric'
                 ]
             ]);
 
-            $body = $response->getBody()->getContents();
-            $forecastData = json_decode($body);
+            $contents = $response->getBody()->getContents();
+            $data = json_decode($contents);
 
-            // [FIX] Added validation here too for robustness
-            if (json_last_error() !== JSON_ERROR_NONE || !isset($forecastData->list)) {
-                error_log("Forecast API Error: Invalid JSON or missing 'list' structure.");
-                return [];
+            // Check if key data exists before accessing it
+            if (!isset($data->main) || !isset($data->weather[0])) {
+                return null;
             }
 
-            $forecast = [];
-            foreach ($forecastData->list as $timeSlot) {
-                // Add checks inside the loop too for safety
-                if (!isset($timeSlot->main, $timeSlot->weather[0])) {
-                    continue; // Skip this malformed entry
+            return [
+                'country'     => $data->sys->country ?? 'N/A',
+                'city_name'   => $data->name ?? $cityName,
+                'temperature' => $data->main->temp ?? 0,
+                'humidity'    => $data->main->humidity ?? 0,
+                'pressure'    => $data->main->pressure ?? 1013,
+                'clouds'      => $data->clouds->all ?? 0,
+                'visibility'  => isset($data->visibility) ? ($data->visibility / 1000) : 10,
+                'windSpeed'   => isset($data->wind->speed) ? round($data->wind->speed * 3.6, 2) : 0,
+                'feelsLike'   => $data->main->feels_like ?? 0,
+                'icon'        => $data->weather[0]->icon ?? '01d',
+                'description' => $data->weather[0]->description ?? '',
+                'timezone'    => $data->timezone ?? 0,
+                'sys'         => [
+                    'sunrise' => $data->sys->sunrise ?? null,
+                    'sunset'  => $data->sys->sunset ?? null,
+                ]
+            ];
+        } catch (\Exception $e) {
+            error_log("WeatherAPI Error: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    public function get5DayForecastByCityName($cityName) {
+        try {
+            $response = $this->client->request('GET', 'forecast', [
+                'query' => ['q' => $cityName, 'appid' => $this->apiKey, 'units' => 'metric']
+            ]);
+            $data = json_decode($response->getBody()->getContents());
+            
+            if (!isset($data->list)) { return ['daily' => [], 'chart' => []]; }
+
+            $forecast = []; 
+            $chartData = [];
+
+            foreach ($data->list as $index => $slot) {
+                // Main website chart (first 8 slots = 24h)
+                if ($index < 8) {
+                    $chartData[] = [
+                        'time' => (new \DateTime($slot->dt_txt))->format('H:i'),
+                        'temp' => round($slot->main->temp)
+                    ];
                 }
-                
-                $date = (new \DateTime($timeSlot->dt_txt))->format('Y-m-d');
-                
+
+                // Grouping by days for cards and MODAL
+                $date = (new \DateTime($slot->dt_txt))->format('Y-m-d');
                 if (!isset($forecast[$date])) {
                     $forecast[$date] = [
-                        'max_temperature' => $timeSlot->main->temp_max,
-                        'min_temperature' => $timeSlot->main->temp_min,
-                        'icon'            => $timeSlot->weather[0]->icon,
-                        'day_name'        => (new \DateTime($date))->format('D')
+                        'max_temperature' => $slot->main->temp_max,
+                        'min_temperature' => $slot->main->temp_min,
+                        'icon'            => $slot->weather[0]->icon,
+                        'full_date'       => (new \DateTime($date))->format('l, F d'),
+                        'description'     => $slot->weather[0]->description,
+                        'humidity'        => $slot->main->humidity,
+                        'windSpeed'       => round($slot->wind->speed * 3.6),
+                        'pressure'        => $slot->main->pressure,
+                        'clouds'          => $slot->clouds->all,
+                        'hourly'          => []
                     ];
                 } else {
-                    $forecast[$date]['max_temperature'] = max($forecast[$date]['max_temperature'], $timeSlot->main->temp_max);
-                    $forecast[$date]['min_temperature'] = min($forecast[$date]['min_temperature'], $timeSlot->main->temp_min);
+                    $forecast[$date]['max_temperature'] = max($forecast[$date]['max_temperature'], $slot->main->temp_max);
+                    $forecast[$date]['min_temperature'] = min($forecast[$date]['min_temperature'], $slot->main->temp_min);
                 }
+                
+                // Filling the new array with exact temperatures for the given day
+                $forecast[$date]['hourly'][] = [
+                    'time' => (new \DateTime($slot->dt_txt))->format('H:i'),
+                    'temp' => round($slot->main->temp)
+                ];
             }
 
-            return array_slice($forecast, 0, 5, true);
-        } catch (ClientException $e) {
-            // Catches 4xx errors
-            error_log("Forecast API ClientException: " . $e->getMessage());
-            return [];
+            return [
+                'daily' => array_slice($forecast, 0, 5, true), 
+                'chart' => $chartData
+            ];
         } catch (\Exception $e) {
-            // Catches our validation errors or other general errors
-            error_log("Forecast API Exception: " . $e->getMessage());
-            return [];
+            error_log("ForecastAPI Error: " . $e->getMessage());
+            return ['daily' => [], 'chart' => []];
         }
     }
 }

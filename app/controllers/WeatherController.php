@@ -8,49 +8,58 @@ use App\Models\SearchLogger;
 require_once __DIR__ . '/../models/City.php';
 require_once __DIR__ . '/../models/SearchLogger.php';
 
-class WeatherController
-{
+class WeatherController {
     private $weatherAPI;
 
-    public function __construct($weatherAPI)
-    {
+    public function __construct($weatherAPI) {
         $this->weatherAPI = $weatherAPI;
     }
 
-    public function showWeather($cityName = null)
-    {
-        $cityName = $cityName ?: 'Beograd';
-        $cityName = trim($cityName);
-
-        $weather = null;
-        $forecast = [];
-        $error = null;
+    public function showWeather($cityName = null) {
+        // Sanitizing input and setting defaults
+        $cityName = trim($cityName ?: 'Smederevo');
+        
+        // Initialization - preventing "undefined variable" in View if the API fails
+        $error = null; 
+        $weather = null; 
+        $forecast = []; 
+        $chartPoints = [];
 
         try {
-
-            $weather  = $this->weatherAPI->getWeatherByCityName($cityName);
-            $forecast = $this->weatherAPI->get5DayForecastByCityName($cityName);
-
-            if (!$weather) {
-                throw new \Exception("Could not find weather data for city: " . htmlspecialchars($cityName));
+            // Current weather API call
+            $weather = $this->weatherAPI->getWeatherByCityName($cityName);
+            
+            if (!$weather) { 
+                throw new \Exception("City not found: " . htmlspecialchars($cityName)); 
             }
 
+            // Forecast API call (Fetching the 'daily' and 'chart' arrays)
+            $fData = $this->weatherAPI->get5DayForecastByCityName($cityName);
+            
+            // Parsing/Organizing data for the View
+            $forecast    = $fData['daily'] ?? [];
+            $chartPoints = $fData['chart'] ?? [];
+
+            // Database logic (Ensuring 'country' exists in weather data)
             $cityModel = new City();
-            if (!$cityModel->findByName($cityName)) {
-                $cityModel->create($cityName, $weather['country']);
+            if (!$cityModel->findByName($cityName)) { 
+                $cityModel->create($cityName, $weather['country']); 
             }
 
+            // Logging the search
             $logger = new SearchLogger();
             $logger->logSearch(
-                $weather['city_name'],
+                $weather['city_name'], 
                 round($weather['temperature']), 
                 $weather['description']
             );
 
-        } catch (\Exception $e) {
-            $error = $e->getMessage();
+        } catch (\Exception $e) { 
+            // Catching the error to display it in the red box within the View
+            $error = $e->getMessage(); 
         }
 
+        // Rendering the final design
         require __DIR__ . '/../views/weather_view.php';
     }
 }
