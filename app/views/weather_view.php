@@ -138,12 +138,22 @@ $stats = [
             <div class="search-bar">
                 <i class="fa-solid fa-magnifying-glass text-cyan-400/70 text-sm"></i>
                 <input type="text" name="city"
-                       placeholder="Search city..."
-                       value="<?= htmlspecialchars($cityName ?? '') ?>">
+                    placeholder="Search city..."
+                    value="<?= htmlspecialchars($cityName ?? '') ?>">
+                
                 <?php if (!empty($weather['country'])): ?>
                     <span class="country-tag"><?= htmlspecialchars($weather['country']) ?></span>
                 <?php endif; ?>
-                <span class="live-badge"><span class="live-dot"></span>Live</span>
+
+                <?php if (isset($fromCache) && $fromCache): ?>
+                    <span class="live-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
+                        <i class="fa-solid fa-bolt text-[10px]"></i> REDIS
+                    </span>
+                <?php else: ?>
+                    <span class="live-badge">
+                        <span class="live-dot"></span> LIVE API
+                    </span>
+                <?php endif; ?>
             </div>
         </form>
 

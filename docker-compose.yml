@@ -20,6 +20,11 @@ services:
     depends_on:
      - weather_app
 
+  redis:
+    image: redis:alpine
+    container_name: weather-redis
+    restart: always
+
   # --- APP (The Chef / PHP Application) ---
   weather_app:
     # Use the pre-built image from Docker Hub
@@ -33,11 +38,15 @@ services:
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       OPENWEATHERMAP_API_KEY: ${OPENWEATHERMAP_API_KEY}
+      REDIS_HOST: redis
       
     # Wait for Database to be healthy before starting
     depends_on:
       weather_db:
         condition: service_healthy
+      
+      redis:
+        condition: service_started
 
   # --- DATABASE (MySQL) ---
   weather_db:
