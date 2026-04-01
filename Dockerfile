@@ -18,8 +18,16 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get clean
 
-# Install required PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql
+# Install required PHP extensions and Redis via PECL
+# autoconf, g++, and make are required for pecl to compile the extension
+RUN apt-get update && apt-get install -y \
+    autoconf \
+    g++ \
+    make \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && docker-php-ext-install pdo pdo_mysql \
+    && apt-get purge -y autoconf g++ make && apt-get autoremove -y && apt-get clean
 
 WORKDIR /var/www/html
 
