@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Controllers;
 
 use App\Models\City;
@@ -16,50 +15,55 @@ class WeatherController {
     }
 
     public function showWeather($cityName = null) {
-        // Sanitizing input and setting defaults
-        $cityName = trim($cityName ?: 'Smederevo');
-        
-        // Initialization - preventing "undefined variable" in View if the API fails
-        $error = null; 
-        $weather = null; 
-        $forecast = []; 
+        $cityName    = trim($cityName ?: 'Smederevo');
+        $error       = null;
+        $weather     = null;
+        $forecast    = [];
         $chartPoints = [];
+        $airQuality  = null;   // NEW
+        $uvIndex     = null;   // NEW
 
         try {
-            // Current weather API call
+            // ---- Current weather ----------------------------------------
             $weather = $this->weatherAPI->getWeatherByCityName($cityName);
-            
-            if (!$weather) { 
-                throw new \Exception("City not found: " . htmlspecialchars($cityName)); 
+
+            if (!$weather) {
+                throw new \Exception("City not found: " . htmlspecialchars($cityName));
             }
 
-            // Forecast API call (Fetching the 'daily' and 'chart' arrays)
-            $fData = $this->weatherAPI->get5DayForecastByCityName($cityName);
-            
-            // Parsing/Organizing data for the View
+            // ---- Forecast -----------------------------------------------
+            $fData       = $this->weatherAPI->get5DayForecastByCityName($cityName);
             $forecast    = $fData['daily'] ?? [];
-            $chartPoints = $fData['chart'] ?? [];
+            $chartPoints = $fData['chart']  ?? [];
 
-            // Database logic (Ensuring 'country' exists in weather data)
-            $cityModel = new City();
-            if (!$cityModel->findByName($cityName)) { 
-                $cityModel->create($cityName, $weather['country']); 
+            // ---- AQI + UV  (only if we got coordinates) -----------------
+            $lat = $weather['lat'] ?? null;
+            $lon = $weather['lon'] ?? null;
+
+            if ($lat !== null && $lon !== null) {
+                $airQuality = $this->weatherAPI->getAirQuality((float)$lat, (float)$lon);
+                $uvIndex    = $this->weatherAPI->getUVIndex((float)$lat, (float)$lon);
             }
 
-            // Logging the search
+            // ---- DB: persist city ---------------------------------------
+            $cityModel = new City();
+            if (!$cityModel->findByName($cityName)) {
+                $cityModel->create($cityName, $weather['country']);
+            }
+
+            // ---- Log search ---------------------------------------------
             $logger = new SearchLogger();
             $logger->logSearch(
-                $weather['city_name'], 
-                round($weather['temperature']), 
+                $weather['city_name'],
+                round($weather['temperature']),
                 $weather['description']
             );
 
-        } catch (\Exception $e) { 
-            // Catching the error to display it in the red box within the View
-            $error = $e->getMessage(); 
+        } catch (\Exception $e) {
+            $error = $e->getMessage();
         }
 
-        // Rendering the final design
+        // ---- Render view ------------------------------------------------
         require __DIR__ . '/../views/weather_view.php';
     }
 }
