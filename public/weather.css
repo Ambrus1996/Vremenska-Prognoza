@@ -1,0 +1,431 @@
+/* =============================================================
+   WEATHER PRO — Main Stylesheet
+   Koristi se isključivo u weather_view.php
+   ============================================================= */
+
+/* ---- Base -------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    color: white;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ---- Overlay ---------------------------------------------- */
+.bg-overlay {
+    position: fixed; inset: 0;
+    background:
+        radial-gradient(ellipse at 15% 10%, rgba(34,211,238,0.06) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 90%, rgba(99,102,241,0.07) 0%, transparent 45%),
+        radial-gradient(circle at 0% 0%, rgba(15,23,42,0.5), rgba(2,6,23,0.97));
+    backdrop-filter: blur(48px);
+    z-index: 0;
+}
+
+/* ---- Dashboard shell -------------------------------------- */
+.main-dashboard {
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 36px;
+    z-index: 10;
+}
+
+/* ---- Search bar ------------------------------------------- */
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 11px 16px;
+    transition: border-color 0.3s, background 0.3s;
+}
+.search-bar:focus-within {
+    border-color: rgba(34,211,238,0.4);
+    background: rgba(255,255,255,0.06);
+}
+.search-bar input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: white;
+    font-size: 14px;
+    font-family: 'Outfit', sans-serif;
+    flex: 1;
+}
+.search-bar input::placeholder { color: rgba(255,255,255,0.3); }
+
+.country-tag {
+    background: rgba(34,211,238,0.1);
+    border: 1px solid rgba(34,211,238,0.2);
+    border-radius: 8px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #22d3ee;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* ---- Live badge ------------------------------------------- */
+.live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(34,211,238,0.07);
+    border: 1px solid rgba(34,211,238,0.18);
+    border-radius: 20px;
+    padding: 3px 9px;
+    font-size: 9px;
+    font-weight: 900;
+    color: #22d3ee;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.live-dot {
+    width: 5px; height: 5px;
+    background: #22d3ee;
+    border-radius: 50%;
+    animation: livePulse 1.6s ease-in-out infinite;
+}
+@keyframes livePulse {
+    0%,100% { opacity: 1;    transform: scale(1);    }
+    50%      { opacity: 0.35; transform: scale(0.75); }
+}
+
+/* ---- Temperature hero ------------------------------------- */
+.temp-num {
+    font-size: clamp(80px, 12vw, 130px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -5px;
+    background: linear-gradient(145deg, #ffffff 20%, rgba(255,255,255,0.6) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.temp-deg {
+    font-size: clamp(28px, 4vw, 52px);
+    font-weight: 900;
+    color: #22d3ee;
+    margin-top: 10px;
+    -webkit-text-fill-color: #22d3ee;
+}
+
+.weather-icon-glow {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.weather-icon-glow::before {
+    content: '';
+    position: absolute;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle, rgba(34,211,238,0.18) 0%, transparent 70%);
+    border-radius: 50%;
+    transform: scale(1.4);
+    pointer-events: none;
+}
+.weather-icon-glow img {
+    position: relative;
+    z-index: 1;
+    animation: floatIcon 5s ease-in-out infinite;
+}
+@keyframes floatIcon {
+    0%,100% { transform: translateY(0px); }
+    50%      { transform: translateY(-8px); }
+}
+
+.date-chip {
+    display: inline-block;
+    background: rgba(34,211,238,0.08);
+    border: 1px solid rgba(34,211,238,0.18);
+    border-radius: 10px;
+    padding: 5px 13px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #22d3ee;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+/* ---- Solar arc strip -------------------------------------- */
+.solar-strip {
+    background: rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.solar-icon-box {
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+.solar-icon-box.rise {
+    background: rgba(251,191,36,0.1);
+    border: 1px solid rgba(251,191,36,0.22);
+}
+.solar-icon-box.set {
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.22);
+}
+.solar-time-label {
+    font-size: 9px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+}
+.solar-time-value { font-size: 18px; font-weight: 900; line-height: 1.2; }
+.solar-arc-track {
+    flex: 1;
+    height: 4px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    position: relative;
+}
+.solar-arc-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #fbbf24, #f97316);
+    border-radius: 2px;
+    position: relative;
+    transition: width 1.5s ease;
+}
+.solar-sun-dot {
+    position: absolute;
+    right: -5px; top: 50%;
+    transform: translateY(-50%);
+    width: 11px; height: 11px;
+    background: #fbbf24;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(251,191,36,0.9), 0 0 3px rgba(251,191,36,1);
+}
+
+/* ---- Stat cards ------------------------------------------- */
+.stat-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 18px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: default;
+    transition: transform 0.22s, border-color 0.22s, background 0.22s;
+    position: relative;
+    overflow: hidden;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+}
+.stat-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 15%; right: 15%;
+    height: 2px;
+    border-radius: 2px 2px 0 0;
+    opacity: 0;
+    transition: opacity 0.22s;
+}
+.stat-card:hover::after                  { opacity: 0.7; }
+.stat-card[data-color="blue"]::after     { background: linear-gradient(90deg, transparent, #3b82f6, transparent); }
+.stat-card[data-color="gray"]::after     { background: linear-gradient(90deg, transparent, #94a3b8, transparent); }
+.stat-card[data-color="red"]::after      { background: linear-gradient(90deg, transparent, #f87171, transparent); }
+.stat-card[data-color="cyan"]::after     { background: linear-gradient(90deg, transparent, #22d3ee, transparent); }
+.stat-card[data-color="purple"]::after   { background: linear-gradient(90deg, transparent, #a78bfa, transparent); }
+.stat-card[data-color="green"]::after    { background: linear-gradient(90deg, transparent, #34d399, transparent); }
+
+.stat-label {
+    font-size: 9px; font-weight: 900;
+    text-transform: uppercase; letter-spacing: 2px;
+    color: rgba(255,255,255,0.3);
+}
+.stat-value { font-size: clamp(16px, 2vw, 20px); font-weight: 900; }
+
+.stat-bar-track {
+    width: 100%; height: 3px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 2px;
+}
+.stat-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1.2s cubic-bezier(.4,0,.2,1);
+}
+[data-color="blue"]   .stat-bar-fill { background: #3b82f6; }
+[data-color="gray"]   .stat-bar-fill { background: #94a3b8; }
+[data-color="red"]    .stat-bar-fill { background: #f87171; }
+[data-color="cyan"]   .stat-bar-fill { background: #22d3ee; }
+[data-color="purple"] .stat-bar-fill { background: #a78bfa; }
+[data-color="green"]  .stat-bar-fill { background: #34d399; }
+
+/* ---- Chart panel ------------------------------------------ */
+.chart-panel {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 20px;
+    padding: 20px 22px;
+    flex: 1;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ---- AQI card --------------------------------------------- */
+.aqi-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.22s, border-color 0.22s;
+}
+.aqi-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.12); }
+
+.aqi-scale {
+    display: flex;
+    gap: 4px;
+}
+.aqi-seg {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    opacity: 0.28;
+    transition: opacity 0.3s, transform 0.3s;
+}
+.aqi-seg.aqi-active {
+    opacity: 1;
+    transform: scaleY(1.6);
+    transform-origin: bottom;
+}
+
+.aqi-value  { font-size: 32px; font-weight: 900; line-height: 1; }
+.aqi-status { font-size: 12px; font-weight: 700; margin-top: 2px; }
+
+/* ---- UV card ---------------------------------------------- */
+.uv-card {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: transform 0.22s, border-color 0.22s;
+}
+.uv-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.12); }
+
+.uv-row { display: flex; align-items: center; gap: 14px; }
+.uv-num { font-size: 40px; font-weight: 900; line-height: 1; }
+.uv-level { font-size: 14px; font-weight: 700; }
+.uv-tip {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.5;
+    margin-top: 2px;
+}
+
+/* ---- Forecast cards --------------------------------------- */
+.forecast-card {
+    flex: 1;
+    min-width: 80px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 18px;
+    padding: 14px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: transform 0.25s, border-color 0.25s, background 0.25s;
+    position: relative;
+    overflow: hidden;
+}
+.forecast-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(34,211,238,0.28);
+    background: rgba(34,211,238,0.05);
+}
+.forecast-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 25%; right: 25%;
+    height: 2px;
+    background: #22d3ee;
+    border-radius: 2px 2px 0 0;
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+.forecast-card.fc-active {
+    border-color: rgba(34,211,238,0.28);
+    background: rgba(34,211,238,0.05);
+}
+.forecast-card.fc-active::after { opacity: 1; }
+
+.fc-day  { font-size: 9px; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.35); }
+.fc-max  { font-size: 14px; font-weight: 900; }
+.fc-min  { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35); }
+
+.fc-range-track { width: 22px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+.fc-range-fill  { height: 100%; background: linear-gradient(90deg, #3b82f6, #22d3ee); border-radius: 2px; }
+
+/* ---- Context chips ---------------------------------------- */
+.chip-row { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    padding: 5px 13px;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.45);
+    white-space: nowrap;
+}
+.chip strong { color: rgba(255,255,255,0.85); font-weight: 700; }
+
+/* ---- Modal ------------------------------------------------ */
+.glass-modal {
+    background: rgba(5,13,26,0.93);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 28px;
+    backdrop-filter: blur(40px);
+}
+.modal-stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    text-align: center;
+}
+
+/* ---- Shared helpers --------------------------------------- */
+.panel-label {
+    font-size: 9px; font-weight: 900;
+    letter-spacing: 3px; text-transform: uppercase;
+    color: rgba(255,255,255,0.22);
+}
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
