@@ -17,26 +17,24 @@ Cilj projekta je demostracija kompletnog DevOps životnog ciklusa — od lokalno
 ### Project Architecture Diagram
 
 ```mermaid
-graph TD
-    Client([👤 User / Browser]) -->|HTTPS 443| Nginx[🔀 Nginx Reverse Proxy]
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#3d5a80', 'primaryTextColor': '#ffffff', 'primaryBorderColor': '#1a2f4a', 'lineColor': '#e07b39', 'secondaryColor': '#2c3e50', 'tertiaryColor': '#1e2d3d'}}}%%
+graph LR
+    Client([👤 User / Browser]) -->|HTTPS 443| Nginx
 
-    subgraph Docker["🐳 Closed Docker Network"]
-
-        subgraph App["⚙️ Application Layer"]
-            Nginx -->|Port 80| PHPApp[🌐 PHP 8.2 Weather App]
-            PHPApp -.->|1. Cache Check| Redis[(🔴 Redis Cache)]
-            PHPApp -->|2. Database Access| MySQL[(🗄️ MySQL 8.0)]
-            PythonWorker[🐍 Python Analytics Daemon] -->|Data Analysis| MySQLL
-        end
-
-        subgraph Monitoring["📊 Observability & Monitoring"]
-            Prometheus[📡 Prometheus] -.->|Scrape Metrics| PHPApp
-            Prometheus -.->|Scrape System| NodeExporter[🖥️ Node Exporter]
-            Grafana[📈 Grafana Dashboard] -->|Read Data| Prometheus
-            Grafana -->|Alerting| Telegram[✈️ Telegram Bot]
-        end
-
+    subgraph Monitoring["📊 Observability & Monitoring"]
+        Grafana[📈 Grafana Dashboard] -->|Read Data| Prometheus[📡 Prometheus]
+        Grafana -->|Alerting| Telegram[✈️ Telegram Bot]
+        Prometheus -.->|Scrape System| NodeExporter[🖥️ Node Exporter]
     end
+
+    subgraph App["⚙️ Application Layer"]
+        Nginx[🔀 Nginx Reverse Proxy] -->|Port 80| PHPApp[🌐 PHP 8.2 Weather App]
+        PHPApp -.->|1. Cache Check| Redis[(🔴 Redis Cache)]
+        PHPApp -->|2. Database Access| MySQL[(🗄️ MySQL 8.0)]
+        PythonWorker[🐍 Python Analytics Daemon] -->|Data Analysis| MySQL
+    end
+
+    Prometheus -.->|Scrape Metrics| PHPApp
 ```
 
 ### Technologies Used
