@@ -132,4 +132,4 @@ Za razvoj na tvom kompjuteru koristimo `docker-compose.local.yml`. Ovaj fajl omo
 | **App URL** | [http://localhost:8080](http://localhost:8080) |
 | **phpMyAdmin** | [http://localhost:8081](http://localhost:8081) |
 | **Grafana** | [http://localhost:3000](http://localhost:3000) |
-| **Prometheus** | [http://localhost:9090](http://localhost:9090) |
+| **Prometheus** | [http://localhost:9090](http://localhost:9090) |   
