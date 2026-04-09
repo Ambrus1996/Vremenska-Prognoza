@@ -10,9 +10,9 @@
 
 ## 🏗️ Project Architecture & Stack
 
-Ova platforma služi za prikupljanje i analizu vremenskih podataka u realnom vremenu. Sastoji se od PHP frontend aplikacije za korisnike i Python pozadinskog mikroservisa koji vrši analitiku podataka unutar MySQL baze.
+Ova platforma služi za prikupljanje i analizu vremenskih podataka u realnom vremenu. Arhitektura se sastoji od PHP frontend aplikacije optimizovane za korisnike i Python pozadinskog mikroservisa zaduženog za analitiku podataka unutar MySQL baze.
 
-Cilj projekta je demostracija kompletnog DevOps životnog ciklusa — od lokalnog razvoja u Docker-u, preko automatizovanog CI/CD pajplajna, do produkcije na AWS EC2 instanci sa punim monitoringom i alarmingom.
+Glavni cilj ovog projekta je demonstracija kompletnog DevOps životnog ciklusa — počevši od lokalnog razvoja u Docker okruženju, preko automatizovanog CI/CD pajplajna, pa sve do produkcijske implementacije na AWS EC2 instanci sa integrisanim sistemom za monitoring i alarmiranje.
 
 ### Project Architecture Diagram
 
@@ -56,18 +56,18 @@ graph LR
 
 ## 📈 Observability & Alerting (Monitoring)
 
-Implementirali smo pun **observability stack** koji nadgleda vitalne parametre servera i aplikacije.
+Implementiran pun **observability stack** koji nadgleda vitalne parametre servera i aplikacije.
 
 * **Scraper (Prometheus):** Skuplja metrike (CPU usage, RAM usage, Disk space, Network traffic, Container status) sa AWS EC2 instance.
 * **Visualization (Grafana):** Grafana dashboard (http://13.53.32.202:3000) prikazuje metrike u realnom vremenu, omogućavajući brzu dijagnostiku opterećenja servera.
-* **Alerting logic:** Podesili smo Grafana Alert pravila koja prate metrike. Na primer, kada CPU zauzeće pređe **40%** i ostane na tom nivou duže od jednog minuta, sistem automatski reaguje.
-* **Notifications (Telegram API):** Integrisali smo prilagođenog **Telegram botića**. Čim alert pukne, botić šalje formatiranu poruku u realnom vremenu na moj telefon.
+* **Alerting logic:** Podešen Grafana Alert pravila koja prate metrike. Na primer, kada CPU zauzeće pređe **X%** i ostane na tom nivou duže od jednog minuta, sistem automatski reaguje.
+* **Notifications (Telegram API):** Integrisan i prilagođen **Telegram bot**. Čim alert pukne, bot šalje formatiranu poruku u realnom vremenu na moj telefon.
 
 ---
 
 ## 🔄 CI/CD Pipeline & Automatic Deployment
 
-Koristimo **GitHub Actions** za automatizaciju deployment procesa.
+Koristim **GitHub Actions** za automatizaciju deployment procesa.
 
 1.  **Code Push:** Svaki `git push` na `main` granu aktivira pipeline.
 2.  **Build Stage:** Pipeline pokreće automatizovane testove, validira PHP kod, i gradi nove Docker slike (images) za Frontend i Analytics servise.
@@ -79,7 +79,7 @@ Koristimo **GitHub Actions** za automatizaciju deployment procesa.
 
 ### ☁️ 1. Produkcija (AWS EC2 Deployment)
 
-U produkciji koristimo glavni `docker-compose.yml`. Ovde je fokus na sigurnosti i performansama. Kod aplikacije je "zapečen" (baked) u sliku, a Nginx sluša na portovima 80 i 443.
+U produkciji koristim glavni `docker-compose.yml`. Ovde je fokus na sigurnosti i performansama. Kod aplikacije je "zapečen" (baked) u sliku, a Nginx sluša na portovima 80 i 443.
 
 **komanda:** `docker-compose up -d`
 
@@ -94,13 +94,13 @@ U produkciji koristimo glavni `docker-compose.yml`. Ovde je fokus na sigurnosti 
 
 #### Obnova SSL Sertifikata (Katanac)
 
-Sertifikati ističu svakih 90 dana. Da bi ih obnovio ručno, koristi se sledeća procedura:
+Sertifikati ističu svakih 90 dana. Da bi ih obnovio ručno, koristim sledeću proceduru:
 1.  Stopiraj Nginx (da oslobodiš port 80): `docker-compose stop nginx`
 2.  Docker run --rm -p 80:80 -v /etc/letsencrypt:/etc/letsencrypt certbot/certbot renew --standalone -> pokretanje Certbot-a.
-3.  Pokreni Nginx: `docker-compose start nginx`
+3.  Pokretanje Nginx: `docker-compose start nginx`
 
 🔄 **Automatsko ažuriranje (Cronjob)**
-Podesili smo automatizaciju koja ovo radi svakog 1. u mesecu u 03:00h ujutru.
+Podešena  automatizacija koja ovo radi svakog 1. u mesecu u 03:00h ujutru.
 Komanda za proveru: `crontab -l`
 
 🛡️ **Security Best Practices Implementirane u projektu**
@@ -119,13 +119,13 @@ Korišćenjem aliase-a definisanih u `~/.bashrc`, imamo brzi pristup ključnim D
 | **stats** | `~/server-stats.sh` | Prikazuje trenutno zauzeće CPU, RAM memorije i disk prostora. Koristiti za proveru opterećenja servera. |
 | **alog** | `docker logs -f --tail 0` | Prati Python analitiku uživo. Prikazuje nove izveštaje čim ih analytics.py generiše. |
 | **dashboard** | N/A | Kombinovani prikaz. Prvo ispisuje sistemske statistike, a zatim poslednjih 15 redova analitike. Idealno za brzi "health check" celog sistema. |
-| **server** | `~/manager.py` | Naš prilagođeni Python menadžer za kontrolu kontejnera i statusa aplikacije. |
+| **server** | `~/manager.py` | Prilagođeni Python menadžer za kontrolu kontejnera i statusa aplikacije. |
 
 ---
 
 ## 💻 2. Lokalni Razvoj (Local Development)
 
-Za razvoj na tvom kompjuteru koristimo `docker-compose.local.yml`. Ovaj fajl omogućava Hot-Reload (promene u kodu se odmah vide bez restartovanja kontejnera) preko volumen mount-ovanja.
+Za razvoj na svom računaru koristimo `docker-compose.local.yml`. Ovaj fajl omogućava Hot-Reload (promene u kodu se odmah vide bez restartovanja kontejnera) preko volumen mount-ovanja.
 
 **komanda:** `docker-compose -f docker-compose.local.yml up --build`
 
