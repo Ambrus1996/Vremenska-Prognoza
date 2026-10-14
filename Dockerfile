@@ -11,15 +11,24 @@ RUN composer install --no-dev --optimize-autoloader
 # Using specific PHP version
 FROM php:8.2.25-apache
 
-# [SECURITY FIX] Force update of OpenSSL and system libraries to patch CVE-2025-15467
-# We explicitly install libssl3 to ensure the cache is broken and the patch is applied
+# [SECURITY FIX] Force update of OpenSSL and libssl3 to patch CVE-2026-28390 (Trivy HIGH vuln)
+# We explicitly upgrade these to ensure the cache is broken and the patch is applied
 RUN apt-get update && \
     apt-get install -y --only-upgrade openssl libssl3 && \
     apt-get upgrade -y && \
-    apt-get clean
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install required PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql
+# Install required PHP extensions and Redis via PECL
+# autoconf, g++, and make are required for pecl to compile the extension
+RUN apt-get update && apt-get install -y \
+    autoconf \
+    g++ \
+    make \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && docker-php-ext-install pdo pdo_mysql \
+    && apt-get purge -y autoconf g++ make && apt-get autoremove -y && apt-get clean
 
 WORKDIR /var/www/html
 

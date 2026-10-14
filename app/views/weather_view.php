@@ -1,307 +1,543 @@
 <?php
-// --- THEMING ENGINE (DYNAMIC BG BASED ON WEATHER) ---
+// ----------------------------------------------------------------
+// THEMING: dynamic background based on weather icon
+// ----------------------------------------------------------------
 $bgImage = "https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?q=80&w=2070&auto=format&fit=crop";
 
 if (isset($weather) && is_array($weather)) {
     $iconCode = $weather['icon'] ?? '01d';
     if (strpos($iconCode, '09') !== false || strpos($iconCode, '10') !== false || strpos($iconCode, '11') !== false) {
-        $bgImage = "https://images.unsplash.com/photo-1428592953211-077101b2021b?q=80&w=2074&auto=format&fit=crop"; 
+        $bgImage = "https://images.unsplash.com/photo-1428592953211-077101b2021b?q=80&w=2074&auto=format&fit=crop";
     } elseif (strpos($iconCode, '13') !== false) {
-        $bgImage = "https://images.unsplash.com/photo-1478265409131-1f65c88f965c?q=80&w=2000&auto=format&fit=crop"; 
+        $bgImage = "https://images.unsplash.com/photo-1478265409131-1f65c88f965c?q=80&w=2000&auto=format&fit=crop";
     }
 }
 
-$getIconUrl = function($iconCode) { 
-    return "https://openweathermap.org/img/wn/" . htmlspecialchars($iconCode) . "@4x.png"; 
-};
+$getIconUrl = fn($code) => "https://openweathermap.org/img/wn/" . htmlspecialchars($code) . "@4x.png";
 
-$finalSunrise = '--:--'; 
-$finalSunset = '--:--';
-$tzOffset = $weather['timezone'] ?? 0;
-$sunSource = $weather['sys'] ?? $weather['city'] ?? null;
+// ----------------------------------------------------------------
+// Solar arc: sunrise → sunset progress
+// ----------------------------------------------------------------
+$finalSunrise = '--:--';
+$finalSunset  = '--:--';
+$sunProgress  = 0;
+$daylightStr  = '--h --m';
+$tzOffset     = $weather['timezone'] ?? 0;
+$sunSource    = $weather['sys'] ?? null;
 
-if (isset($sunSource['sunrise']) && isset($sunSource['sunset'])) {
-    $finalSunrise = gmdate('H:i', $sunSource['sunrise'] + $tzOffset);
-    $finalSunset  = gmdate('H:i', $sunSource['sunset'] + $tzOffset);
+if (isset($sunSource['sunrise'], $sunSource['sunset'])) {
+    $rise = $sunSource['sunrise'];
+    $set  = $sunSource['sunset'];
+
+    $finalSunrise = gmdate('H:i', $rise + $tzOffset);
+    $finalSunset  = gmdate('H:i', $set  + $tzOffset);
+
+    $now = time();
+    if ($now >= $rise && $now <= $set) {
+        $sunProgress = round(($now - $rise) / ($set - $rise) * 100);
+    } elseif ($now > $set) {
+        $sunProgress = 100;
+    }
+
+    $dlSec       = $set - $rise;
+    $daylightStr = floor($dlSec / 3600) . 'h ' . floor(($dlSec % 3600) / 60) . 'm';
 }
+
+// ----------------------------------------------------------------
+// Wind direction helper
+// ----------------------------------------------------------------
+$windDir = '';
+if (isset($weather['windDeg'])) {
+    $dirs    = ['N','NE','E','SE','S','SW','W','NW'];
+    $windDir = $dirs[round($weather['windDeg'] / 45) % 8];
+}
+
+// ----------------------------------------------------------------
+// Context chips
+// ----------------------------------------------------------------
+$chips = [];
+if ($daylightStr !== '--h --m')  $chips[] = ['☀️', 'Daylight',   $daylightStr];
+if ($windDir !== '')             $chips[] = ['🧭', 'Wind from',  $windDir];
+if (!empty($weather['feelsLike'])) $chips[] = ['🌡️', 'Feels like', round($weather['feelsLike']) . '°C'];
+if (!empty($weather['visibility'])) $chips[] = ['👁️', 'Visibility', $weather['visibility'] . ' km'];
+
+// ----------------------------------------------------------------
+// AQI helper data
+// ----------------------------------------------------------------
+$aqiColors = ['#34d399','#fbbf24','#f97316','#f87171','#c084fc'];
+
+// ----------------------------------------------------------------
+// Stat cards config
+// ----------------------------------------------------------------
+$humBar   = min(100, (int)($weather['humidity']  ?? 0));
+$windMax  = 120;
+$windBar  = min(100, round((($weather['windSpeed'] ?? 0) / $windMax) * 100));
+$feelBar  = min(100, max(0, round((((float)($weather['feelsLike'] ?? $weather['temperature']) + 20) / 60) * 100)));
+$presBar  = min(100, round((((int)($weather['pressure'] ?? 1013) - 950) / 100) * 100));
+$cloudBar = min(100, (int)($weather['clouds']     ?? 0));
+$visBar   = min(100, round((min((float)($weather['visibility'] ?? 10), 10) / 10) * 100));
+
+$stats = [
+    ['blue',   'fa-droplet',         'Humidity',   ($weather['humidity'] ?? 0) . '%',                                   $humBar],
+    ['gray',   'fa-wind',            'Wind',       round($weather['windSpeed'] ?? 0) . ' km/h',                         $windBar],
+    ['red',    'fa-temperature-half','Feels Like', round($weather['feelsLike'] ?? $weather['temperature']) . '°',        $feelBar],
+    ['cyan',   'fa-gauge-high',      'Pressure',   ($weather['pressure'] ?? 1013) . ' hPa',                              $presBar],
+    ['purple', 'fa-cloud',           'Clouds',     ($weather['clouds'] ?? 0) . '%',                                      $cloudBar],
+    ['green',  'fa-eye',             'Visibility', ($weather['visibility'] ?? 10) . ' km',                               $visBar],
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Pro - <?= htmlspecialchars($cityName ?? 'Home') ?></title>
+    <title>Weather Pro — <?= htmlspecialchars($cityName ?? 'Home') ?></title>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;900&display=swap" rel="stylesheet">
-    <style>
-        
-        body { 
-            font-family: 'Outfit', sans-serif; 
-            background-image: url('<?= $bgImage ?>'); 
-            background-size: cover; 
-            background-position: center; 
-            background-attachment: fixed; 
-            color: white; 
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-        .bg-overlay { position: fixed; inset: 0; background: radial-gradient(circle at 0% 0%, rgba(15,23,42,0.5), rgba(2,6,23,0.96)); backdrop-filter: blur(50px); z-index: 0; }
-        .main-dashboard { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 40px; z-index: 10; }
-        .glass-card { background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.05); border-radius: 24px; }
-        .glass-card-light { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; transition: 0.3s; }
-        .cyan-accent { color: #22d3ee; }
-        .animate-icon { animation: float 6s ease-in-out infinite; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+
+   
+    <link rel="stylesheet" href="/weather.css">
+
+   
+   <style>
+        body { background-image: url('<?= $bgImage ?>'); }
     </style>
 </head>
 <body class="flex items-center justify-center p-2 md:p-6">
-    <div class="bg-overlay"></div>
+<div class="bg-overlay"></div>
 
-    <?php if (isset($error)): ?>
-        <div class="z-50 bg-red-500/20 p-6 rounded-xl border border-red-500/50 text-white"><?= $error ?></div>
-    <?php elseif ($weather): ?>
-    
-    <div class="main-dashboard w-full max-w-[1500px] flex flex-col lg:flex-row relative overflow-hidden" 
-         x-data="{ 
-            show: false, 
-            modalOpen: false, 
-            selectedDate: null, 
-            forecastObj: window.forecastData 
-         }" 
-         x-init="setTimeout(() => show = true, 50)">
-        
-        <div class="w-full lg:w-[38%] p-6 md:p-10 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-white/5">
-            <form action="index.php" method="get" class="bg-white/5 rounded-2xl px-5 py-3 border border-white/10 focus-within:border-cyan-400/50 transition-all">
-                <input type="text" name="city" placeholder="Search city..." value="<?= htmlspecialchars($cityName ?? '') ?>" class="bg-transparent outline-none w-full text-white text-center lg:text-left">
-            </form>
-
-            <div class="flex-1 flex flex-col items-center lg:items-start justify-center py-6 md:py-8 text-center lg:text-left">
-                <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-2"><?= htmlspecialchars($weather['city_name']) ?></h1>
-                <p class="text-cyan-400 font-bold tracking-widest uppercase text-sm md:text-xl mb-6 md:mb-10 drop-shadow-sm w-full">
-                    <?= date("l, F d, Y") ?>
-                </p>
-                
-                <div class="flex items-center justify-center lg:justify-start gap-4 md:gap-8 mb-4 w-full">
-                    <div class="text-[6rem] md:text-[9rem] xl:text-[11rem] font-black leading-none tracking-tighter drop-shadow-2xl text-white">
-                        <?= round($weather['temperature']) ?><span class="text-4xl md:text-6xl xl:text-7xl cyan-accent align-top ml-1">°</span>
-                    </div>
-                    <img src="<?= $getIconUrl($weather['icon']) ?>" class="w-24 h-24 md:w-40 md:h-40 animate-icon drop-shadow-2xl">
-                </div>
-                <p class="text-xl md:text-3xl font-bold text-gray-400 capitalize w-full"><?= htmlspecialchars($weather['description']) ?></p>
-            </div>
-
-            <div class="flex justify-center lg:justify-start gap-8 md:gap-12 border-t border-white/10 pt-6 md:pt-8 w-full">
-                <div class="flex items-center gap-3 md:gap-4">
-                    <i class="fa-solid fa-sun text-yellow-400 text-2xl md:text-4xl"></i>
-                    <div class="text-left">
-                        <p class="text-[8px] md:text-[10px] text-gray-500 uppercase font-black">Sunrise</p>
-                        <p class="text-lg md:text-2xl font-bold"><?= $finalSunrise ?></p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3 md:gap-4">
-                    <i class="fa-solid fa-moon cyan-accent text-2xl md:text-4xl"></i>
-                    <div class="text-left">
-                        <p class="text-[8px] md:text-[10px] text-gray-500 uppercase font-black">Sunset</p>
-                        <p class="text-lg md:text-2xl font-bold"><?= $finalSunset ?></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="w-full lg:w-[62%] p-6 md:p-10 bg-black/20 flex flex-col gap-6 md:gap-8">
-            
-            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-                <?php 
-                $stats = [
-                    ['Humidity', $weather['humidity'].'%', 'fa-droplet', 'text-blue-400'],
-                    ['Wind', round($weather['windSpeed']).' km/h', 'fa-wind', 'text-gray-300'],
-                    ['Feels Like', round($weather['feelsLike'] ?? $weather['temperature']).'°', 'fa-temperature-half', 'text-red-400'],
-                    ['Pressure', ($weather['pressure'] ?? 1013).' hPa', 'fa-gauge-high', 'cyan-accent'],
-                    ['Clouds', ($weather['clouds'] ?? 0).'%', 'fa-cloud', 'text-gray-400'],
-                    ['Visibility', ($weather['visibility'] ?? 10).' km', 'fa-eye', 'text-emerald-400'],
-                ];
-                foreach($stats as $s): ?>
-                <div class="glass-card p-4 md:p-6 flex flex-col items-center">
-                    <i class="fa-solid <?= $s[2] ?> <?= $s[3] ?> text-lg md:text-2xl mb-2 md:mb-3"></i>
-                    <p class="text-[8px] md:text-[10px] text-gray-500 uppercase font-black mb-1"><?= $s[0] ?></p>
-                    <p class="text-base md:text-xl font-black"><?= $s[1] ?></p>
-                </div>
-                <?php endforeach; ?>
-            </div>
-
-            <div class="glass-card p-4 md:p-8 flex-1 min-h-[200px] md:min-h-[250px] flex flex-col">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest">24H Trend</h3>
-                    <span class="text-[9px] font-black cyan-accent px-2 py-1 bg-cyan-400/10 rounded-full border border-cyan-400/20">LIVE DATA</span>
-                </div>
-                <div class="flex-1 relative w-full h-full"><canvas id="mainChart"></canvas></div>
-            </div>
-
-            <div class="flex overflow-x-auto md:overflow-x-visible gap-3 md:gap-4 pb-2 no-scrollbar">
-                <?php foreach ($forecast as $day => $data): ?>
-                <div @click="selectedDate = '<?= $day ?>'; modalOpen = true; $nextTick(() => { renderModalChart('<?= $day ?>'); })" 
-                     class="glass-card-light min-w-[85px] md:flex-1 py-4 flex flex-col items-center group cursor-pointer">
-                    <span class="text-[9px] md:text-[10px] font-black text-gray-400 group-hover:text-cyan-400 uppercase tracking-widest transition-colors">
-                        <?= date("D", strtotime($day)) ?>
-                    </span>
-                    <img src="<?= $getIconUrl($data['icon']) ?>" class="w-10 h-10 md:w-12 md:h-12 my-2 group-hover:scale-110 transition duration-300">
-                    <div class="font-black text-xs md:text-sm">
-                        <span class="text-white"><?= round($data['max_temperature']) ?>°</span>
-                        <span class="text-gray-500 ml-1"><?= round($data['min_temperature']) ?>°</span>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <div x-show="modalOpen" style="display: none;" 
-             class="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-black/60 backdrop-blur-md"
-             x-transition.opacity.duration.300ms>
-            
-            <div class="glass-card w-full max-w-4xl p-6 md:p-10 relative border-t border-white/20 shadow-2xl flex flex-col gap-6 md:gap-10 overflow-y-auto max-h-[95vh]" 
-                 @click.outside="modalOpen = false" 
-                 x-show="modalOpen" 
-                 x-transition.scale.duration.300ms>
-                
-                <button @click="modalOpen = false" class="absolute top-4 right-4 md:top-6 md:right-6 text-gray-400 hover:text-white transition z-50">
-                    <i class="fa-solid fa-xmark text-2xl md:text-3xl"></i>
-                </button>
-                
-                <template x-if="selectedDate && forecastObj[selectedDate]">
-                    <div class="flex flex-col w-full gap-6 md:gap-8">
-                        
-                        <div class="flex flex-col md:flex-row justify-between items-center gap-6 md:gap-8 w-full">
-                            <div class="w-full md:flex-1 flex flex-col items-center md:items-start text-center md:text-left">
-                                <h2 class="text-2xl md:text-4xl font-black text-white mb-1" x-text="forecastObj[selectedDate].full_date"></h2>
-                                <p class="text-cyan-400 font-bold uppercase tracking-widest text-[10px] md:text-sm mb-4" x-text="forecastObj[selectedDate].description"></p>
-                                
-                                <div class="flex items-center gap-4">
-                                    <img :src="'https://openweathermap.org/img/wn/' + forecastObj[selectedDate].icon + '@4x.png'" class="w-20 h-20 md:w-24 md:h-24 animate-icon">
-                                    <div class="flex flex-col">
-                                        <span class="text-4xl md:text-6xl font-black text-white leading-none"><span x-text="Math.round(forecastObj[selectedDate].max_temperature)"></span><span class="text-2xl md:text-4xl cyan-accent align-top">°</span></span>
-                                        <span class="text-lg md:text-xl font-bold text-gray-500 mt-1">Min: <span x-text="Math.round(forecastObj[selectedDate].min_temperature)"></span>°</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="w-full md:flex-1 grid grid-cols-2 gap-3 md:gap-4">
-                                <div class="bg-white/5 border border-white/10 rounded-xl p-3 md:p-5 flex flex-col items-center text-center">
-                                    <i class="fa-solid fa-droplet text-blue-400 mb-1 text-lg"></i>
-                                    <p class="text-[8px] uppercase font-black text-gray-500">Humidity</p>
-                                    <p class="font-bold text-white text-base md:text-xl"><span x-text="forecastObj[selectedDate].humidity"></span>%</p>
-                                </div>
-                                <div class="bg-white/5 border border-white/10 rounded-xl p-3 md:p-5 flex flex-col items-center text-center">
-                                    <i class="fa-solid fa-wind text-gray-300 mb-1 text-lg"></i>
-                                    <p class="text-[8px] uppercase font-black text-gray-500">Wind</p>
-                                    <p class="font-bold text-white text-base md:text-xl"><span x-text="forecastObj[selectedDate].windSpeed"></span> km/h</p>
-                                </div>
-                                <div class="bg-white/5 border border-white/10 rounded-xl p-3 md:p-5 flex flex-col items-center text-center">
-                                    <i class="fa-solid fa-gauge-high cyan-accent mb-1 text-lg"></i>
-                                    <p class="text-[8px] uppercase font-black text-gray-500">Pressure</p>
-                                    <p class="font-bold text-white text-base md:text-xl"><span x-text="forecastObj[selectedDate].pressure"></span> hPa</p>
-                                </div>
-                                <div class="bg-white/5 border border-white/10 rounded-xl p-3 md:p-5 flex flex-col items-center text-center">
-                                    <i class="fa-solid fa-cloud text-gray-400 mb-1 text-lg"></i>
-                                    <p class="text-[8px] uppercase font-black text-gray-500">Clouds</p>
-                                    <p class="font-bold text-white text-base md:text-xl"><span x-text="forecastObj[selectedDate].clouds"></span>%</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="w-full flex flex-col bg-black/20 rounded-3xl p-4 md:p-8 border border-white/5">
-                            <h3 class="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Daily Trend</h3>
-                            <div class="relative w-full h-[200px] md:h-[250px]">
-                                <canvas id="modalChart"></canvas>
-                            </div>
-                        </div>
-
-                    </div>
-                </template>
-            </div>
-        </div>
-
+<?php if (isset($error)): ?>
+    <div class="z-50 bg-red-500/20 p-6 rounded-2xl border border-red-500/40 text-white max-w-md text-center">
+        <i class="fa-solid fa-triangle-exclamation text-red-400 text-3xl mb-3 block"></i>
+        <?= htmlspecialchars($error) ?>
     </div>
-    <?php endif; ?>
 
-    <script>
-        window.forecastData = <?= json_encode($forecast ?? [], JSON_NUMERIC_CHECK) ?>;
-        const mainChartPoints = <?= json_encode($chartPoints ?? [], JSON_NUMERIC_CHECK) ?>;
-        let modalChartInstance = null;
+<?php elseif ($weather): ?>
 
-        window.addEventListener('load', () => {
-            const ctxMain = document.getElementById('mainChart');
-            if (ctxMain && mainChartPoints.length > 0) {
-                const mainLabels = mainChartPoints.map(p => p.time);
-                const mainTemps = mainChartPoints.map(p => p.temp);
-                const gradMain = ctxMain.getContext('2d').createLinearGradient(0, 0, 0, 250);
-                gradMain.addColorStop(0, 'rgba(34, 211, 238, 0.25)'); 
-                gradMain.addColorStop(1, 'transparent');
+<div class="main-dashboard w-full max-w-[1500px] flex flex-col lg:flex-row relative overflow-hidden"
+     x-data="{
+         show:         false,
+         modalOpen:    false,
+         selectedDate: null,
+         forecastObj:  window.forecastData
+     }"
+     x-init="setTimeout(() => show = true, 50)">
 
-                new Chart(ctxMain.getContext('2d'), {
-                    type: 'line',
-                    data: {
-                        labels: mainLabels,
-                        datasets: [{ 
-                            data: mainTemps, borderColor: '#22d3ee', borderWidth: 3, fill: true, backgroundColor: gradMain, 
-                            tension: 0.4, pointRadius: 2, pointBackgroundColor: '#22d3ee'
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { legend: { display: false } }, 
-                        scales: { 
-                            y: { display: false }, 
-                            x: { 
-                                grid: { display: false }, 
-                                ticks: { color: 'rgba(255,255,255,0.3)', font: { size: 9, weight: 'bold' } } 
-                            } 
-                        } 
+    <!-- ================================================================
+         LEFT PANEL
+    ================================================================ -->
+    <div class="w-full lg:w-[38%] p-6 md:p-10 flex flex-col gap-6
+                border-b lg:border-b-0 lg:border-r border-white/[0.05]">
+
+        <!-- Search -->
+        <form action="index.php" method="get">
+            <div class="search-bar">
+                <i class="fa-solid fa-magnifying-glass text-cyan-400/70 text-sm"></i>
+                <input type="text" name="city"
+                    placeholder="Search city..."
+                    value="<?= htmlspecialchars($cityName ?? '') ?>">
+                
+                <?php if (!empty($weather['country'])): ?>
+                    <span class="country-tag"><?= htmlspecialchars($weather['country']) ?></span>
+                <?php endif; ?>
+
+                <?php if (isset($fromCache) && $fromCache): ?>
+                    <span class="live-badge" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border-color: rgba(239, 68, 68, 0.4);">
+                        <i class="fa-solid fa-bolt text-[10px]"></i> REDIS
+                    </span>
+                <?php else: ?>
+                    <span class="live-badge">
+                        <span class="live-dot"></span> LIVE API
+                    </span>
+                <?php endif; ?>
+            </div>
+        </form>
+
+        <!-- Temperature hero -->
+        <div class="flex flex-col items-center lg:items-start gap-3 flex-1 justify-center">
+            <span class="date-chip"><?= date('D, M d, Y') ?></span>
+
+            <h1 class="text-4xl md:text-6xl font-black tracking-tight leading-tight mt-1">
+                <?= htmlspecialchars($weather['city_name']) ?>
+            </h1>
+
+            <div class="flex items-center gap-6 my-2">
+                <div class="flex items-start">
+                    <span class="temp-num"><?= round($weather['temperature']) ?></span>
+                    <span class="temp-deg">°</span>
+                </div>
+                <div class="weather-icon-glow">
+                    <img src="<?= $getIconUrl($weather['icon']) ?>"
+                         class="w-24 h-24 md:w-32 md:h-32 drop-shadow-2xl">
+                </div>
+            </div>
+
+            <p class="text-lg md:text-2xl font-bold text-gray-400 capitalize">
+                <?= htmlspecialchars($weather['description']) ?>
+            </p>
+        </div>
+
+        <!-- Solar arc -->
+        <div class="solar-strip">
+            <div class="solar-icon-box rise">☀️</div>
+            <div>
+                <div class="solar-time-label">Sunrise</div>
+                <div class="solar-time-value"><?= $finalSunrise ?></div>
+            </div>
+
+            <div class="solar-arc-track flex-1">
+                <div class="solar-arc-fill" style="width:<?= $sunProgress ?>%">
+                    <div class="solar-sun-dot"></div>
+                </div>
+            </div>
+
+            <div class="text-right">
+                <div class="solar-time-label">Sunset</div>
+                <div class="solar-time-value"><?= $finalSunset ?></div>
+            </div>
+            <div class="solar-icon-box set">🌙</div>
+        </div>
+
+        <!-- Context chips -->
+        <?php if (!empty($chips)): ?>
+        <div class="chip-row">
+            <?php foreach ($chips as [$icon, $label, $value]): ?>
+                <span class="chip"><?= $icon ?> <?= $label ?>: <strong><?= $value ?></strong></span>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+    </div><!-- /left panel -->
+
+    <!-- ================================================================
+         RIGHT PANEL
+    ================================================================ -->
+    <div class="w-full lg:w-[62%] p-6 md:p-10 bg-black/[0.15] flex flex-col gap-5 md:gap-6">
+
+        <!-- Stat cards -->
+        <div>
+            <p class="panel-label mb-3">Current Conditions</p>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                <?php foreach ($stats as [$color, $icon, $label, $value, $bar]): ?>
+                <div class="stat-card" data-color="<?= $color ?>">
+                    <i class="fa-solid <?= $icon ?> text-xl mb-1
+                        <?php if ($color === 'blue')   echo 'text-blue-400';
+                              elseif ($color === 'gray')   echo 'text-slate-400';
+                              elseif ($color === 'red')    echo 'text-red-400';
+                              elseif ($color === 'cyan')   echo 'text-cyan-400';
+                              elseif ($color === 'purple') echo 'text-violet-400';
+                              elseif ($color === 'green')  echo 'text-emerald-400'; ?>
+                    "></i>
+                    <span class="stat-label"><?= $label ?></span>
+                    <span class="stat-value"><?= $value ?></span>
+                    <div class="stat-bar-track">
+                        <div class="stat-bar-fill" style="width:<?= $bar ?>%"></div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- 24h chart -->
+        <div class="chart-panel">
+            <div class="flex justify-between items-center mb-4">
+                <span class="panel-label">24H Temperature Trend</span>
+                <span class="live-badge"><span class="live-dot"></span>Live Data</span>
+            </div>
+            <div class="flex-1 relative w-full" style="min-height:180px;">
+                <canvas id="mainChart"></canvas>
+            </div>
+        </div>
+
+        <!-- AQI + UV row (visible only when API data is available) -->
+        <?php if ($airQuality || $uvIndex): ?>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            <?php if ($airQuality): ?>
+            <div class="aqi-card">
+                <p class="panel-label">Air Quality Index</p>
+
+                <!-- Coloured scale: 5 segments, active one pops -->
+                <div class="aqi-scale">
+                    <?php foreach ($aqiColors as $i => $col): ?>
+                        <div class="aqi-seg <?= ($i + 1 === $airQuality['aqi']) ? 'aqi-active' : '' ?>"
+                             style="background:<?= $col ?>"></div>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="aqi-value" style="color:<?= htmlspecialchars($airQuality['aqi_color']) ?>">
+                    <?= $airQuality['aqi'] ?>
+                </div>
+                <div class="aqi-status" style="color:<?= htmlspecialchars($airQuality['aqi_color']) ?>">
+                    ✓ <?= htmlspecialchars($airQuality['aqi_label']) ?>
+                </div>
+
+                <?php if ($airQuality['pm25'] !== null): ?>
+                <div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:4px;">
+                    PM2.5 <?= round($airQuality['pm25'],1) ?> µg/m³
+                    &nbsp;·&nbsp;
+                    PM10 <?= round($airQuality['pm10'],1) ?> µg/m³
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($uvIndex): ?>
+            <div class="uv-card">
+                <p class="panel-label">UV Index</p>
+                <div class="uv-row">
+                    <div class="uv-num" style="color:<?= htmlspecialchars($uvIndex['uv_color']) ?>">
+                        <?= $uvIndex['uv'] ?>
+                    </div>
+                    <div>
+                        <div class="uv-level" style="color:<?= htmlspecialchars($uvIndex['uv_color']) ?>">
+                            <?= htmlspecialchars($uvIndex['uv_label']) ?>
+                        </div>
+                        <div class="uv-tip"><?= htmlspecialchars($uvIndex['uv_tip']) ?></div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
+        </div>
+        <?php endif; ?>
+
+        <!-- Forecast strip -->
+        <div>
+            <p class="panel-label mb-3">5-Day Forecast</p>
+            <div class="flex gap-2 md:gap-3 overflow-x-auto no-scrollbar pb-1">
+                <?php
+                $todayKey = date('Y-m-d');
+                $allMaxes = array_column($forecast, 'max_temperature');
+                $allMins  = array_column($forecast, 'min_temperature');
+                $rangeMin = empty($allMins)  ? 0  : min($allMins);
+                $rangeMax = empty($allMaxes) ? 30 : max($allMaxes);
+                $spread   = ($rangeMax - $rangeMin) ?: 1;
+                ?>
+                <?php foreach ($forecast as $day => $data):
+                    $rangeBar = round(($data['max_temperature'] - $rangeMin) / $spread * 100);
+                ?>
+                <div class="forecast-card <?= $day === $todayKey ? 'fc-active' : '' ?>"
+                     @click="selectedDate = '<?= $day ?>'; modalOpen = true;
+                             $nextTick(() => { renderModalChart('<?= $day ?>'); })">
+                    <span class="fc-day"><?= date('D', strtotime($day)) ?></span>
+                    <img src="<?= $getIconUrl($data['icon']) ?>"
+                         class="w-10 h-10 md:w-12 md:h-12 transition-transform duration-300">
+                    <span class="fc-max"><?= round($data['max_temperature']) ?>°</span>
+                    <div class="fc-range-track">
+                        <div class="fc-range-fill" style="width:<?= $rangeBar ?>%"></div>
+                    </div>
+                    <span class="fc-min"><?= round($data['min_temperature']) ?>°</span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+    </div><!-- /right panel -->
+
+    <!-- ================================================================
+         MODAL
+    ================================================================ -->
+    <div x-show="modalOpen"
+         style="display:none;"
+         class="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-6 bg-black/70 backdrop-blur-lg"
+         x-transition:enter="transition ease-out duration-250"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-180"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0">
+
+        <div class="glass-modal w-full max-w-3xl p-6 md:p-10 relative flex flex-col gap-7
+                    overflow-y-auto max-h-[94vh] no-scrollbar"
+             @click.outside="modalOpen = false"
+             x-transition:enter="transition ease-out duration-250"
+             x-transition:enter-start="opacity-0 scale-95"
+             x-transition:enter-end="opacity-100 scale-100">
+
+            <button @click="modalOpen = false"
+                    class="absolute top-5 right-5 w-9 h-9 flex items-center justify-center
+                           rounded-full bg-white/5 border border-white/10
+                           text-gray-400 hover:text-white hover:bg-white/10 transition">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <template x-if="selectedDate && forecastObj[selectedDate]">
+                <div class="flex flex-col gap-7 w-full">
+
+                    <!-- Header: date + temp + mini stats -->
+                    <div class="flex flex-col md:flex-row gap-6 items-center md:items-start">
+
+                        <!-- Left: icon + temp -->
+                        <div class="flex-1 flex flex-col items-center md:items-start gap-2">
+                            <span class="date-chip" x-text="forecastObj[selectedDate].full_date"></span>
+                            <p class="text-cyan-400 font-bold uppercase tracking-widest text-xs"
+                               x-text="forecastObj[selectedDate].description"></p>
+
+                            <div class="flex items-center gap-5 mt-2">
+                                <div class="weather-icon-glow">
+                                    <img :src="'https://openweathermap.org/img/wn/' + forecastObj[selectedDate].icon + '@4x.png'"
+                                         class="w-24 h-24 drop-shadow-2xl"
+                                         style="animation:floatIcon 5s ease-in-out infinite;">
+                                </div>
+                                <div>
+                                    <div class="flex items-start">
+                                        <span class="font-black leading-none"
+                                              style="font-size:60px;
+                                                     background:linear-gradient(145deg,#fff 20%,rgba(255,255,255,0.6) 100%);
+                                                     -webkit-background-clip:text;
+                                                     -webkit-text-fill-color:transparent;
+                                                     background-clip:text;
+                                                     letter-spacing:-3px;"
+                                              x-text="Math.round(forecastObj[selectedDate].max_temperature)"></span>
+                                        <span style="font-size:28px;font-weight:900;color:#22d3ee;margin-top:8px;">°</span>
+                                    </div>
+                                    <p class="text-lg font-bold text-gray-500">
+                                        Min: <span class="text-white"
+                                                   x-text="Math.round(forecastObj[selectedDate].min_temperature)"></span>°
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: mini stat grid -->
+                        <div class="flex-1 grid grid-cols-2 gap-3">
+                            <div class="modal-stat-card">
+                                <i class="fa-solid fa-droplet text-blue-400 mb-1"></i>
+                                <span class="panel-label">Humidity</span>
+                                <span class="font-bold text-lg"
+                                      x-text="forecastObj[selectedDate].humidity + '%'"></span>
+                            </div>
+                            <div class="modal-stat-card">
+                                <i class="fa-solid fa-wind text-slate-400 mb-1"></i>
+                                <span class="panel-label">Wind</span>
+                                <span class="font-bold text-lg"
+                                      x-text="forecastObj[selectedDate].windSpeed + ' km/h'"></span>
+                            </div>
+                            <div class="modal-stat-card">
+                                <i class="fa-solid fa-gauge-high text-cyan-400 mb-1"></i>
+                                <span class="panel-label">Pressure</span>
+                                <span class="font-bold text-lg"
+                                      x-text="forecastObj[selectedDate].pressure + ' hPa'"></span>
+                            </div>
+                            <div class="modal-stat-card">
+                                <i class="fa-solid fa-cloud text-slate-400 mb-1"></i>
+                                <span class="panel-label">Clouds</span>
+                                <span class="font-bold text-lg"
+                                      x-text="forecastObj[selectedDate].clouds + '%'"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Daily trend chart -->
+                    <div class="chart-panel">
+                        <span class="panel-label mb-4 block">Daily Temperature Trend</span>
+                        <div class="relative w-full" style="min-height:220px;">
+                            <canvas id="modalChart"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </template>
+        </div>
+    </div>
+
+</div><!-- /main-dashboard -->
+<?php endif; ?>
+
+<!-- ================================================================
+     SCRIPTS
+================================================================ -->
+<script>
+    window.forecastData   = <?= json_encode($forecast     ?? [], JSON_NUMERIC_CHECK) ?>;
+    const mainChartPoints = <?= json_encode($chartPoints  ?? [], JSON_NUMERIC_CHECK) ?>;
+    let   modalChartInstance = null;
+
+    /* ---- shared chart options factory ---- */
+    function buildChartOptions(ctx, labels, temps) {
+        const grad = ctx.createLinearGradient(0, 0, 0, 260);
+        grad.addColorStop(0, 'rgba(34,211,238,0.22)');
+        grad.addColorStop(1, 'transparent');
+
+        return {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    data: temps,
+                    borderColor: '#22d3ee',
+                    borderWidth: 2.5,
+                    fill: true,
+                    backgroundColor: grad,
+                    tension: 0.45,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#22d3ee',
+                    pointBorderColor: 'transparent',
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#fff',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(5,13,26,0.9)',
+                        borderColor: 'rgba(34,211,238,0.3)',
+                        borderWidth: 1,
+                        titleColor: '#22d3ee',
+                        bodyColor: '#fff',
+                        cornerRadius: 10,
+                        padding: 10,
+                        callbacks: { label: c => ` ${c.parsed.y}°C` }
                     }
-                });
-            }
-        });
-
-        window.renderModalChart = function(dateKey) {
-            const dayData = window.forecastData[dateKey];
-            if (!dayData || !dayData.hourly) return;
-            const canvas = document.getElementById('modalChart');
-            if (!canvas) return;
-            const ctxModal = canvas.getContext('2d');
-            if (modalChartInstance) modalChartInstance.destroy();
-
-            const labels = dayData.hourly.map(h => h.time);
-            const temps = dayData.hourly.map(h => h.temp);
-            const gradModal = ctxModal.createLinearGradient(0, 0, 0, 250);
-            gradModal.addColorStop(0, 'rgba(34, 211, 238, 0.3)');
-            gradModal.addColorStop(1, 'transparent');
-
-            modalChartInstance = new Chart(ctxModal, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{ 
-                        data: temps, borderColor: '#22d3ee', borderWidth: 3, fill: true, backgroundColor: gradModal, 
-                        tension: 0.4, pointRadius: 3, pointBackgroundColor: '#22d3ee'
-                    }]
                 },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    plugins: { legend: { display: false } }, 
-                    scales: { 
-                        y: { display: false }, 
-                        x: { grid: { display: false }, ticks: { color: 'rgba(255,255,255,0.5)', font: { size: 9, weight: 'bold' } } } 
-                    } 
+                scales: {
+                    y: { display: false },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: 'rgba(255,255,255,0.28)',
+                            font: { size: 9, weight: 'bold', family: 'Outfit' },
+                            maxRotation: 0,
+                        },
+                        border: { display: false }
+                    }
                 }
-            });
+            }
         };
-    </script>
+    }
+
+    /* ---- Main 24h chart ---- */
+    window.addEventListener('load', () => {
+        const canvas = document.getElementById('mainChart');
+        if (!canvas || !mainChartPoints.length) return;
+
+        const labels = mainChartPoints.map(p => p.time);
+        const temps  = mainChartPoints.map(p => p.temp);
+        new Chart(canvas.getContext('2d'), buildChartOptions(canvas.getContext('2d'), labels, temps));
+    });
+
+    /* ---- Modal chart ---- */
+    window.renderModalChart = function(dateKey) {
+        const dayData = window.forecastData[dateKey];
+        if (!dayData?.hourly) return;
+
+        const canvas = document.getElementById('modalChart');
+        if (!canvas) return;
+
+        if (modalChartInstance) modalChartInstance.destroy();
+
+        const labels = dayData.hourly.map(h => h.time);
+        const temps  = dayData.hourly.map(h => h.temp);
+        modalChartInstance = new Chart(canvas.getContext('2d'), buildChartOptions(canvas.getContext('2d'), labels, temps));
+    };
+</script>
 </body>
 </html>
