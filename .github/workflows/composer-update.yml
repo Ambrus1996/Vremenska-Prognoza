@@ -1,0 +1,51 @@
+name: Maintenance - Composer Update
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP 8.2 (same as production image)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer:v2
+
+      - name: Audit BEFORE update
+        run: composer audit --locked || true
+
+      - name: Update dependencies
+        run: composer update --no-interaction --no-progress --with-all-dependencies
+
+      - name: Audit AFTER update (must be clean)
+        run: composer audit --locked
+
+      - name: Run tests
+        run: vendor/bin/phpunit
+
+      - name: Push update to a new branch
+        run: |
+          if git diff --quiet -- composer.lock composer.json; then
+            echo "Nothing to update."
+            exit 0
+          fi
+          BRANCH="chore/composer-update-$(date +%Y%m%d-%H%M)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add composer.lock composer.json
+          git commit -m "chore(deps): update Composer dependencies to fix known vulnerabilities"
+          git push origin "$BRANCH"
+          {
+            echo "### Branch pushed: \`$BRANCH\`"
+            echo ""
+            echo "Open a Pull Request: https://github.com/${{ github.repository }}/compare/main...$BRANCH?expand=1"
+          } >> "$GITHUB_STEP_SUMMARY"
